@@ -1,10 +1,11 @@
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
+#include <allegro5/allegro_image.h>
 #include "Square.h"
 #include <stdio.h>
 #include <stdbool.h>
-#define X_SCREEN 1500
+#define X_SCREEN 1000
 #define Y_SCREEN 800
 
 typedef enum { MENU, GAME, EXIT } GameState;
@@ -12,6 +13,7 @@ typedef enum { MENU, GAME, EXIT } GameState;
 int main() {
     al_init();
     al_init_primitives_addon();
+    al_init_image_addon();
     al_install_keyboard();
 
     ALLEGRO_DISPLAY* disp = al_create_display(X_SCREEN, Y_SCREEN);
@@ -20,6 +22,17 @@ int main() {
 
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(disp));
+
+    // Carrega o background (pode ser menor que a tela, ex: 500x800)
+    ALLEGRO_BITMAP* bg = al_load_bitmap("background.png");
+    if (!bg) {
+        printf("Erro ao carregar background!\n");
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
+    int bg_width = al_get_bitmap_width(bg);
 
     GameState state = MENU;
     int menu_option = 0; // 0 = Iniciar, 1 = Sair
@@ -64,6 +77,8 @@ int main() {
                 continue;
             }
 
+            int bg_offset_x = 0;
+            int player_speed = 10;
             bool jogando = true;
             while (jogando) {
                 ALLEGRO_EVENT event;
@@ -72,10 +87,16 @@ int main() {
                 if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE)
                     jogando = false;
                 else if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
-                    if (event.keyboard.keycode == ALLEGRO_KEY_LEFT)
+                    if (event.keyboard.keycode == ALLEGRO_KEY_LEFT) {
                         square_move(player, 1, 0, X_SCREEN, Y_SCREEN);
-                    else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT)
+                        bg_offset_x -= player_speed;
+                        if (bg_offset_x < 0) bg_offset_x = 0;
+                    }
+                    else if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
                         square_move(player, 1, 1, X_SCREEN, Y_SCREEN);
+                        bg_offset_x += player_speed;
+                        // Não precisa limitar, pois o fundo é infinito tileado
+                    }
                     else if (event.keyboard.keycode == ALLEGRO_KEY_UP)
                         square_move(player, 1, 2, X_SCREEN, Y_SCREEN);
                     else if (event.keyboard.keycode == ALLEGRO_KEY_DOWN)
@@ -84,8 +105,13 @@ int main() {
                         jogando = false; // ESC para sair do jogo
                 }
 
-                // Desenhar o quadrado
-                al_clear_to_color(al_map_rgb(30, 30, 30));
+                // Desenhar o background tileado
+                int start_x = -(bg_offset_x % bg_width);
+                for (int x = start_x; x < X_SCREEN; x += bg_width) {
+                    al_draw_bitmap(bg, x, 0, 0);
+                }
+
+                // Desenhar o player
                 al_draw_filled_rectangle(
                     player->x - player->side/2, player->y - player->side/2,
                     player->x + player->side/2, player->y + player->side/2,
@@ -99,6 +125,7 @@ int main() {
         }
     }
 
+    al_destroy_bitmap(bg);
     al_destroy_font(font);
     al_destroy_display(disp);
     al_destroy_event_queue(queue);
