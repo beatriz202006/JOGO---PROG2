@@ -23,8 +23,7 @@ int main() {
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(disp));
 
-    // Carrega o background (pode ser menor que a tela, ex: 500x800)
-    ALLEGRO_BITMAP* bg = al_load_bitmap("background.png");
+    ALLEGRO_BITMAP* bg = al_load_bitmap("background3.png");
     if (!bg) {
         printf("Erro ao carregar background!\n");
         al_destroy_font(font);
