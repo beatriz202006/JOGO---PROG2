@@ -5,8 +5,8 @@
 #include "Square.h"
 #include <stdio.h>
 #include <stdbool.h>
-#define X_SCREEN 1000
-#define Y_SCREEN 800
+#define X_SCREEN 1200
+#define Y_SCREEN 1000
 
 typedef enum { MENU, GAME, EXIT } GameState;
 
