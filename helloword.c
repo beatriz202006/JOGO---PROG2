@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #define X_SCREEN 1200
-#define Y_SCREEN 900
+#define Y_SCREEN 1000
 
 typedef enum { MENU, GAME, EXIT } GameState;
 
@@ -23,7 +23,7 @@ int main() {
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(disp));
 
-    ALLEGRO_BITMAP* bg = al_load_bitmap("background.png");
+    ALLEGRO_BITMAP* bg = al_load_bitmap("backgroundfull.png");
     if (!bg) {
         printf("Erro ao carregar background!\n");
         al_destroy_font(font);
@@ -70,7 +70,7 @@ int main() {
 
         if (state == GAME) {
             // Plataforma (chão)
-            int plataforma_y = Y_SCREEN - 247; // chão ->define onde o quadrado vai pousar
+            int plataforma_y = Y_SCREEN - 275; // chão ->define onde o quadrado vai pousar
             // Plataforma suspensa
             int plat_x = 400;
             int plat_w = 400;
