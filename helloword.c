@@ -34,6 +34,19 @@ int main() {
     int bg_width = al_get_bitmap_width(bg);
     int bg_height = al_get_bitmap_height(bg);
 
+    // Carrega a spritesheet do personagem
+    ALLEGRO_BITMAP* sprite_sheet = al_load_bitmap("spritesagua.png");
+    if (!sprite_sheet) {
+        printf("Erro ao carregar sprite do personagem!\n");
+        al_destroy_bitmap(bg);
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
+    int SPRITE_W = 128;
+    int SPRITE_H = 128;
+
     GameState state = MENU;
     int menu_option = 0; // 0 = Iniciar, 1 = Sair
 
@@ -70,7 +83,7 @@ int main() {
 
         if (state == GAME) {
             // Plataforma (chão)
-            int plataforma_y = Y_SCREEN - 275; // chão ->define onde o quadrado vai pousar
+            int plataforma_y = Y_SCREEN - 300; // chão ->define onde o quadrado vai pousar
             // Plataforma suspensa
             int plat_x = 400;
             int plat_w = 400;
@@ -94,6 +107,9 @@ int main() {
             float vel_y = 0;
             bool no_chao = false;
 
+            // Controle de direção e animação
+            int direcao = 0; // 0 = direita, 1 = esquerda
+
             while (jogando) {
                 ALLEGRO_EVENT event;
                 if (al_get_next_event(queue, &event)) {
@@ -105,15 +121,27 @@ int main() {
                         key[event.keyboard.keycode] = false;
                 }
 
+                // Atualiza direção
+                if (key[ALLEGRO_KEY_LEFT]) direcao = 1;
+                if (key[ALLEGRO_KEY_RIGHT]) direcao = 0;
+
                 // Movimento horizontal contínuo
+                bool andando = false, correndo = false;
+                static int frame_counter = 0;
+                frame_counter++;
+
                 if (key[ALLEGRO_KEY_LEFT]) {
                     square_move(player, 1, 0, X_SCREEN, Y_SCREEN);
                     bg_offset_x -= player_speed;
                     if (bg_offset_x < 0) bg_offset_x = 0;
+                    andando = true;
+                    if (key[ALLEGRO_KEY_LEFT] && frame_counter % 3 == 0) correndo = true;
                 }
                 if (key[ALLEGRO_KEY_RIGHT]) {
                     square_move(player, 1, 1, X_SCREEN, Y_SCREEN);
                     bg_offset_x += player_speed;
+                    andando = true;
+                    if (key[ALLEGRO_KEY_RIGHT] && frame_counter % 3 == 0) correndo = true;
                 }
 
                 // Pulo com espaço ou seta para cima
@@ -150,6 +178,40 @@ int main() {
                 if (key[ALLEGRO_KEY_ESCAPE])
                     jogando = false;
 
+                // Seleção do sprite
+                int sprite_row = 0, sprite_col = 0;
+
+                // Abaixado
+                if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                    sprite_row = 1;
+                    sprite_col = (direcao == 0) ? 0 : 3;
+                }
+                // Atirando (tecla Z)
+                else if (key[ALLEGRO_KEY_Z]) {
+                    sprite_row = 2;
+                    sprite_col = (direcao == 0) ? 1 : 2;
+                }
+                // Pulando
+                else if (!no_chao) {
+                    sprite_row = 0;
+                    sprite_col = (direcao == 0) ? 1 : 2;
+                }
+                // Correndo (seta pressionada continuamente)
+                else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao && (key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT])) {
+                    sprite_row = 1;
+                    sprite_col = (direcao == 0) ? 1 : 2;
+                }
+                // Andando (apertando vez por vez)
+                else if (andando && no_chao) {
+                    sprite_row = 2;
+                    sprite_col = (direcao == 0) ? 0 : 3;
+                }
+                // Parado
+                else if (no_chao) {
+                    sprite_row = 0;
+                    sprite_col = (direcao == 0) ? 0 : 3;
+                }
+
                 // Desenhar o background tileado (cobre toda a tela)
                 int start_x = -(bg_offset_x % bg_width);
                 for (int x = start_x; x <= X_SCREEN; x += bg_width) {
@@ -158,17 +220,16 @@ int main() {
                     }
                 }
 
-                // Desenhar o chão
-                //al_draw_filled_rectangle(0, plataforma_y, X_SCREEN, Y_SCREEN, al_map_rgb(100, 80, 30));
-
-                // Desenhar o player
-                al_draw_filled_rectangle(
-                    player->x - player->side/2, player->y - player->side/2,
-                    player->x + player->side/2, player->y + player->side/2,
-                    al_map_rgb(255, 0, 0)
+                // Desenhar o personagem
+                al_draw_bitmap_region(
+                    sprite_sheet,
+                    sprite_col * SPRITE_W, sprite_row * SPRITE_H,
+                    SPRITE_W, SPRITE_H,
+                    player->x - SPRITE_W/2, player->y - SPRITE_H/2,
+                    0
                 );
-                al_flip_display();
 
+                al_flip_display();
                 al_rest(0.01);
             }
 
@@ -177,6 +238,7 @@ int main() {
         }
     }
 
+    al_destroy_bitmap(sprite_sheet);
     al_destroy_bitmap(bg);
     al_destroy_font(font);
     al_destroy_display(disp);
