@@ -46,6 +46,20 @@ int main() {
         return 1;
     }
 
+    // Carrega a spritesheet dos sprites "atirando abaixado"
+    ALLEGRO_BITMAP* sprite_down = al_load_bitmap("spriteatirandoabaixadofull.png");
+    if (!sprite_down) {
+        printf("Erro ao carregar sprite atirando abaixado!\n");
+        al_destroy_bitmap(sprite_sheet);
+        al_destroy_bitmap(bg);
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
+    int SPRITE_DOWN_W = 182; // 364 / 2
+    int SPRITE_DOWN_H = 164;
+
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(200, 200, 200));
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(255,255,255));
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(0,0,0));
@@ -88,7 +102,7 @@ int main() {
 
         if (state == GAME) {
             // Plataforma (chão)
-            int plataforma_y = Y_SCREEN - 300; // chão ->define onde o quadrado vai pousar
+            int plataforma_y = Y_SCREEN - 272; // chão ->define onde o quadrado vai pousar
             // Plataforma suspensa
             int plat_x = 400;
             int plat_w = 400;
@@ -186,37 +200,6 @@ int main() {
                 // Seleção do sprite
                 int sprite_row = 0, sprite_col = 0;
 
-                // Abaixado
-                if (key[ALLEGRO_KEY_DOWN] && no_chao) {
-                    sprite_row = 1;
-                    sprite_col = (direcao == 0) ? 0 : 3;
-                }
-                // Atirando (tecla Z)
-                else if (key[ALLEGRO_KEY_Z]) {
-                    sprite_row = 2;
-                    sprite_col = (direcao == 0) ? 1 : 2;
-                }
-                // Pulando
-                else if (!no_chao) {
-                    sprite_row = 0;
-                    sprite_col = (direcao == 0) ? 1 : 2;
-                }
-                // Correndo (seta pressionada continuamente)
-                else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao && (key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT])) {
-                    sprite_row = 1;
-                    sprite_col = (direcao == 0) ? 1 : 2;
-                }
-                // Andando (apertando vez por vez)
-                else if (andando && no_chao) {
-                    sprite_row = 2;
-                    sprite_col = (direcao == 0) ? 0 : 3;
-                }
-                // Parado
-                else if (no_chao) {
-                    sprite_row = 0;
-                    sprite_col = (direcao == 0) ? 0 : 3;
-                }
-
                 // Desenhar o background tileado (cobre toda a tela)
                 int start_x = -(bg_offset_x % bg_width);
                 for (int x = start_x; x <= X_SCREEN; x += bg_width) {
@@ -225,14 +208,59 @@ int main() {
                     }
                 }
 
-                // Desenhar o personagem
-                al_draw_bitmap_region(
-                    sprite_sheet,
-                    sprite_col * SPRITE_W, sprite_row * SPRITE_H,
-                    SPRITE_W, SPRITE_H,
-                    player->x - SPRITE_W/2, player->y - SPRITE_H/2,
-                    0
-                );
+                // --- Desenhar o personagem ---
+                // Atirando abaixado (seta para baixo + Z)
+                if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
+                    int down_col = (direcao == 0) ? 1 : 0; // 0 = esquerda, 1 = direita
+                    al_draw_bitmap_region(
+                        sprite_down,
+                        down_col * SPRITE_DOWN_W, 0,
+                        SPRITE_DOWN_W, SPRITE_DOWN_H,
+                        player->x - SPRITE_DOWN_W/2,
+                        player->y + player->side/2 - SPRITE_DOWN_H, // <-- base alinhada
+                        0
+                    );
+                } else {
+                    // Abaixado
+                    if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                        sprite_row = 1;
+                        sprite_col = (direcao == 0) ? 0 : 3;
+                    }
+                    // Atirando (tecla Z)
+                    else if (key[ALLEGRO_KEY_Z]) {
+                        sprite_row = 2;
+                        sprite_col = (direcao == 0) ? 1 : 2;
+                    }
+                    // Pulando
+                    else if (!no_chao) {
+                        sprite_row = 0;
+                        sprite_col = (direcao == 0) ? 1 : 2;
+                    }
+                    // Correndo (seta pressionada continuamente)
+                    else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao && (key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT])) {
+                        sprite_row = 1;
+                        sprite_col = (direcao == 0) ? 1 : 2;
+                    }
+                    // Andando (apertando vez por vez)
+                    else if (andando && no_chao) {
+                        sprite_row = 2;
+                        sprite_col = (direcao == 0) ? 0 : 3;
+                    }
+                    // Parado
+                    else if (no_chao) {
+                        sprite_row = 0;
+                        sprite_col = (direcao == 0) ? 0 : 3;
+                    }
+
+                    al_draw_bitmap_region(
+                        sprite_sheet,
+                        sprite_col * SPRITE_W, sprite_row * SPRITE_H,
+                        SPRITE_W, SPRITE_H,
+                        player->x - SPRITE_W/2,
+                        player->y + player->side/2 - SPRITE_H, // <-- base alinhada
+                        0
+                    );
+                }
 
                 al_flip_display();
                 al_rest(0.01);
@@ -243,6 +271,7 @@ int main() {
         }
     }
 
+    al_destroy_bitmap(sprite_down);
     al_destroy_bitmap(sprite_sheet);
     al_destroy_bitmap(bg);
     al_destroy_font(font);
