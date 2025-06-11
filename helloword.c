@@ -45,7 +45,7 @@ int main() {
     int bg_height = al_get_bitmap_height(bg);
 
     // Carrega a spritesheet do personagem
-    ALLEGRO_BITMAP* sprite_sheet = al_load_bitmap("image.psd.png");
+    ALLEGRO_BITMAP* sprite_sheet = al_load_bitmap("spritesagua.png");
     if (!sprite_sheet) {
         printf("Erro ao carregar sprite do personagem!\n");
         al_destroy_bitmap(bg);
@@ -317,10 +317,13 @@ int main() {
                     );
                 }
 
-                // Dispara ao pressionar Z (e não estiver pressionando antes)
-                static bool z_pressed = false;
-                if (key[ALLEGRO_KEY_Z] && !z_pressed) {
-                    z_pressed = true;
+                // Controle de cooldown para tiro contínuo
+                static double last_shot_time = 0;
+                double now = al_get_time();
+                double shot_delay = 0.15; // segundos entre tiros (ajuste como quiser)
+
+                if (key[ALLEGRO_KEY_Z] && now - last_shot_time > shot_delay) {
+                    last_shot_time = now;
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
@@ -328,29 +331,29 @@ int main() {
                             // Tiro para cima
                             if (key[ALLEGRO_KEY_UP]) {
                                 bullets[i].x = player->x;
-                                bullets[i].y = player->y + player->side/2 - SPRITE_UP_H; // topo da cabeça
+                                bullets[i].y = player->y + player->side/2 - SPRITE_UP_H;
                                 bullets[i].vx = 0;
-                                bullets[i].vy = -15; // vai para cima
+                                bullets[i].vy = -15;
                             }
                             // Tiro abaixado
                             else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
-                                if (direcao == 0) { // direita
+                                if (direcao == 0) {
                                     bullets[i].x = player->x + SPRITE_DOWN_W/2;
-                                } else { // esquerda
+                                } else {
                                     bullets[i].x = player->x - SPRITE_DOWN_W/2;
                                 }
-                                bullets[i].y = player->y + player->side/2 - SPRITE_DOWN_H/2 + 40; // ajuste para altura da arma abaixada
+                                bullets[i].y = player->y + player->side/2 - SPRITE_DOWN_H/2 + 20;
                                 bullets[i].vx = (direcao == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
                             }
                             // Tiro normal (horizontal)
                             else {
-                                if (direcao == 0) { // direita
+                                if (direcao == 0) {
                                     bullets[i].x = player->x + SPRITE_W/2;
-                                } else { // esquerda
+                                } else {
                                     bullets[i].x = player->x - SPRITE_W/2;
                                 }
-                                bullets[i].y = player->y + player->side/2 - SPRITE_H + 40;
+                                bullets[i].y = player->y + player->side/2 - SPRITE_H + 50; // ajuste Y para sair da mão
                                 bullets[i].vx = (direcao == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
                             }
@@ -358,7 +361,6 @@ int main() {
                         }
                     }
                 }
-                if (!key[ALLEGRO_KEY_Z]) z_pressed = false;
 
                 // Atualiza e desenha as balas
                 for (int i = 0; i < MAX_BULLETS; i++) {
