@@ -10,6 +10,15 @@
 
 typedef enum { MENU, GAME, EXIT } GameState;
 
+struct Bullet {
+    float x, y;
+    float vx, vy;
+    int ativa;
+};
+
+#define MAX_BULLETS 2000
+struct Bullet bullets[MAX_BULLETS] = {0};
+
 int main() {
     al_init();
     al_init_primitives_addon();
@@ -80,6 +89,25 @@ int main() {
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(0,0,0));
     int SPRITE_W = 128;
     int SPRITE_H = 128;
+
+    // Carrega a imagem da bala
+    ALLEGRO_BITMAP* bullet_img = al_load_bitmap("bala.png");
+    if (!bullet_img) {
+        printf("Erro ao carregar sprite do projetil!\n");
+        // Libere recursos e retorne!
+        al_destroy_bitmap(sprite_up);
+        al_destroy_bitmap(sprite_down);
+        al_destroy_bitmap(sprite_sheet);
+        al_destroy_bitmap(bg);
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
+
+    al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(0,0,0));
+    int BULLET_W = 22;
+    int BULLET_H = 33;
 
     GameState state = MENU;
     int menu_option = 0; // 0 = Iniciar, 1 = Sair
@@ -289,6 +317,58 @@ int main() {
                     );
                 }
 
+                // Dispara ao pressionar Z (e não estiver pressionando antes)
+                static bool z_pressed = false;
+                if (key[ALLEGRO_KEY_Z] && !z_pressed) {
+                    z_pressed = true;
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (!bullets[i].ativa) {
+                            bullets[i].ativa = 1;
+
+                            // Tiro para cima
+                            if (key[ALLEGRO_KEY_UP]) {
+                                bullets[i].x = player->x;
+                                bullets[i].y = player->y + player->side/2 - SPRITE_UP_H; // topo da cabeça
+                                bullets[i].vx = 0;
+                                bullets[i].vy = -15; // vai para cima
+                            }
+                            // Tiro abaixado
+                            else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                                if (direcao == 0) { // direita
+                                    bullets[i].x = player->x + SPRITE_DOWN_W/2;
+                                } else { // esquerda
+                                    bullets[i].x = player->x - SPRITE_DOWN_W/2;
+                                }
+                                bullets[i].y = player->y + player->side/2 - SPRITE_DOWN_H/2 + 40; // ajuste para altura da arma abaixada
+                                bullets[i].vx = (direcao == 0) ? 15 : -15;
+                                bullets[i].vy = 0;
+                            }
+                            // Tiro normal (horizontal)
+                            else {
+                                if (direcao == 0) { // direita
+                                    bullets[i].x = player->x + SPRITE_W/2;
+                                } else { // esquerda
+                                    bullets[i].x = player->x - SPRITE_W/2;
+                                }
+                                bullets[i].y = player->y + player->side/2 - SPRITE_H + 40;
+                                bullets[i].vx = (direcao == 0) ? 15 : -15;
+                                bullets[i].vy = 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (!key[ALLEGRO_KEY_Z]) z_pressed = false;
+
+                // Atualiza e desenha as balas
+                for (int i = 0; i < MAX_BULLETS; i++) {
+                    if (bullets[i].ativa) {
+                        bullets[i].x += bullets[i].vx;
+                        bullets[i].y += bullets[i].vy;
+                        al_draw_bitmap(bullet_img, bullets[i].x - BULLET_W/2, bullets[i].y, 0);
+                    }
+                }
+
                 al_flip_display();
                 al_rest(0.01);
             }
@@ -298,6 +378,7 @@ int main() {
         }
     }
 
+    al_destroy_bitmap(bullet_img);
     al_destroy_bitmap(sprite_up);
     al_destroy_bitmap(sprite_down);
     al_destroy_bitmap(sprite_sheet);
