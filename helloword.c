@@ -151,7 +151,7 @@ int main() {
 
     // Agora sim, inicialize o inimigo usando plat_y:
     struct inimigo fogo;
-    int fogo_vida = 5; //vida do inimigo (morre após 6 balas)
+    int fogo_vida = 2; //vida do inimigo (morre após 6 balas)
     fogo.x = X_SCREEN; // começa na direita da tela
     float escala = 0.4; // mesma escala usada no desenho
     fogo.y = plat_y - fogo_frame_h * escala; // alinhado com o topo da plataforma
@@ -243,6 +243,9 @@ int main() {
             // Controle de direção e animação
             int direcao = 0; // 0 = direita, 1 = esquerda
 
+            // Defina um ponto de travamento (centro da tela)
+            int travamento_x = X_SCREEN / 2;
+
             while (jogando) {
                 ALLEGRO_EVENT event;
                 if (al_get_next_event(queue, &event)) {
@@ -263,18 +266,43 @@ int main() {
                 static int frame_counter = 0;
                 frame_counter++;
 
-                if (key[ALLEGRO_KEY_LEFT]) {
-                    square_move(player, 1, 0, X_SCREEN, Y_SCREEN);
-                    bg_offset_x -= player_speed;
-                    if (bg_offset_x < 0) bg_offset_x = 0;
-                    andando = true;
-                    if (key[ALLEGRO_KEY_LEFT] && frame_counter % 3 == 0) correndo = true;
-                }
                 if (key[ALLEGRO_KEY_RIGHT]) {
-                    square_move(player, 1, 1, X_SCREEN, Y_SCREEN);
-                    bg_offset_x += player_speed;
+                    if (player->x < travamento_x) {
+                        square_move(player, 1, 1, X_SCREEN, Y_SCREEN);
+                    } else {
+                        bg_offset_x += player_speed;
+                        // Mova todos os objetos do cenário para a esquerda
+                        fogo.x -= player_speed;
+                        for (int i = 0; i < MAX_BULLETS; i++) {
+                            if (bullets[i].ativa) bullets[i].x -= player_speed;
+                        }
+                        for (int i = 0; i < MAX_CHAMAS; i++) {
+                            if (chamas[i].ativa) chamas[i].x -= player_speed;
+                        }
+                        plat_x -= player_speed; // se quiser mover a plataforma suspensa também
+                    }
                     andando = true;
                     if (key[ALLEGRO_KEY_RIGHT] && frame_counter % 3 == 0) correndo = true;
+                }
+
+                if (key[ALLEGRO_KEY_LEFT]) {
+                    if (player->x > travamento_x) {
+                        square_move(player, 1, 0, X_SCREEN, Y_SCREEN);
+                    } else if (bg_offset_x > 0) {
+                        bg_offset_x -= player_speed;
+                        fogo.x += player_speed;
+                        for (int i = 0; i < MAX_BULLETS; i++) {
+                            if (bullets[i].ativa) bullets[i].x += player_speed;
+                        }
+                        for (int i = 0; i < MAX_CHAMAS; i++) {
+                            if (chamas[i].ativa) chamas[i].x += player_speed;
+                        }
+                        plat_x += player_speed;
+                    } else {
+                        square_move(player, 1, 0, X_SCREEN, Y_SCREEN);
+                    }
+                    andando = true;
+                    if (key[ALLEGRO_KEY_LEFT] && frame_counter % 3 == 0) correndo = true;
                 }
 
                 // Pulo com espaço ou seta para cima
