@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #define X_SCREEN 1200
 #define Y_SCREEN 1000
-#define MAX_CHAMAS 100
+#define MAX_CHAMAS 500
 #define MAX_BULLETS 2000
 
 typedef enum { MENU, GAME, EXIT } GameState;
@@ -151,6 +151,7 @@ int main() {
 
     // Agora sim, inicialize o inimigo usando plat_y:
     struct inimigo fogo;
+    int fogo_vida = 5; //vida do inimigo (morre após 6 balas)
     fogo.x = X_SCREEN; // começa na direita da tela
     float escala = 0.4; // mesma escala usada no desenho
     fogo.y = plat_y - fogo_frame_h * escala; // alinhado com o topo da plataforma
@@ -438,6 +439,36 @@ int main() {
                         bullets[i].x += bullets[i].vx;
                         bullets[i].y += bullets[i].vy;
                         al_draw_bitmap(bullet_img, bullets[i].x - BULLET_W/2, bullets[i].y, 0);
+
+                        // Colisão do tiro com o fogo (bounding box igual ao desenho do fogo)
+                        float fogo_w = fogo_frame_w * escala;
+                        float fogo_h = fogo_frame_h * escala;
+                        float fogo_left   = fogo.x;
+                        float fogo_right  = fogo.x + fogo_w;
+                        float fogo_top    = fogo.y;
+                        float fogo_bottom = fogo.y + fogo_h;
+
+                        float bullet_left   = bullets[i].x - BULLET_W/2;
+                        float bullet_right  = bullets[i].x + BULLET_W/2;
+                        float bullet_top    = bullets[i].y;
+                        float bullet_bottom = bullets[i].y + BULLET_H;
+
+                        if (
+                            fogo_vida > 0 && // só toma dano se estiver vivo
+                            bullet_right > fogo_left &&
+                            bullet_left < fogo_right &&
+                            bullet_bottom > fogo_top &&
+                            bullet_top < fogo_bottom
+                        ) {
+                            fogo_vida--;
+                            bullets[i].ativa = 0; // desativa o tiro ao colidir
+
+                            // Se a vida do fogo acabou, "mata" o inimigo (tira da tela)
+                            if (fogo_vida <= 0) {
+                                fogo.x = X_SCREEN + 200; // manda para fora da tela
+                                // Opcional: pode parar de desenhar/mover o fogo
+                            }
+                        }
                     }
                 }
 
@@ -464,7 +495,7 @@ int main() {
                 }
 
                 // Desenha o inimigo
-                float escala = 0.4;// 0.5 = metade do tamanho
+                float escala = 0.4;// 0.5 = metade do tamanho 
                 al_draw_scaled_bitmap(
                     fogo_sprite,
                     fogo.frame * fogo_frame_w, 0, // origem do recorte
@@ -475,18 +506,28 @@ int main() {
                     0
                 );
 
-                // Bounding box do inimigo
+                // Bounding box do fogo
                 float fogo_w = fogo_frame_w * escala;
                 float fogo_h = fogo_frame_h * escala;
+                float fogo_left   = fogo.x;
+                float fogo_right  = fogo.x + fogo_w;
+                float fogo_top    = fogo.y;
+                float fogo_bottom = fogo.y + fogo_h;
+
+                // Bounding box do player
+                float player_left   = player->x - SPRITE_W/2;
+                float player_right  = player->x + SPRITE_W/2;
+                float player_top    = player->y + player->side/2 - SPRITE_H;
+                float player_bottom = player->y + player->side/2;
 
                 if (
-                    fogo.x < player->x + player->side/2 &&
-                    fogo.x + fogo_w > player->x - player->side/2 &&
-                    fogo.y < player->y + player->side/2 &&
-                    fogo.y + fogo_h > player->y - player->side/2
+                    fogo_right > player_left &&
+                    fogo_left < player_right &&
+                    fogo_bottom > player_top &&
+                    fogo_top < player_bottom
                 ) {
                     vida--;
-                    // Opcional: empurra o player ou inimigo, ou dá invencibilidade temporária
+                    // Opcional: invencibilidade temporária
                 }
 
                 static int chama_timer = 0;
@@ -513,12 +554,18 @@ int main() {
                         chamas[i].y += chamas[i].vy;
                         al_draw_bitmap(chama_sprite, chamas[i].x, chamas[i].y, 0);
 
-                        // Colisão simples: bounding box
+                        // Aqui vai a colisão correta:
+                        float chama_left   = chamas[i].x;
+                        float chama_right  = chamas[i].x + CHAMA_W;
+                        float chama_top    = chamas[i].y;
+                        float chama_bottom = chamas[i].y + CHAMA_H;
+
+                        // Use as mesmas variáveis player_left, player_right, player_top, player_bottom já calculadas antes!
                         if (
-                            chamas[i].x < player->x + player->side/2 &&
-                            chamas[i].x + CHAMA_W > player->x - player->side/2 &&
-                            chamas[i].y < player->y + player->side/2 &&
-                            chamas[i].y + CHAMA_H > player->y - player->side/2
+                            chama_right > player_left &&
+                            chama_left < player_right &&
+                            chama_bottom > player_top &&
+                            chama_top < player_bottom
                         ) {
                             vida--;
                             chamas[i].ativa = 0; // desativa a chama ao colidir
