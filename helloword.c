@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #define X_SCREEN 1200
 #define Y_SCREEN 1000
+#define MAX_CHAMAS 100
+#define MAX_BULLETS 2000
 
 typedef enum { MENU, GAME, EXIT } GameState;
 
@@ -16,7 +18,7 @@ struct Bullet {
     int ativa;
 };
 
-#define MAX_BULLETS 2000
+
 struct Bullet bullets[MAX_BULLETS] = {0};
 
  struct inimigo {
@@ -25,6 +27,15 @@ struct Bullet bullets[MAX_BULLETS] = {0};
     int direcao; // 0: direita, 1: esquerda
     float velocidade;
 };
+
+struct Chama {
+    float x, y;
+    float vx, vy;
+    int ativa;
+};
+
+
+struct Chama chamas[MAX_CHAMAS] = {0};
 
 int main() {
     al_init();
@@ -146,6 +157,27 @@ int main() {
     fogo.direcao = 1; // sempre para a esquerda
     fogo.velocidade = 3;
     fogo.frame = 2; // frame 2: andando para a esquerda
+
+    // Carrega a spritesheet da chama
+    ALLEGRO_BITMAP* chama_sprite = al_load_bitmap("chama2.png");
+    if (!chama_sprite) {
+        printf("Erro ao carregar sprite da chama!\n");
+        // Libere recursos e retorne!
+    }
+    int CHAMA_W = 46;
+    int CHAMA_H = 33;
+
+    // Carrega a spritesheet dos corações
+    ALLEGRO_BITMAP* coracao_sprite = al_load_bitmap("vida.png");
+    al_convert_mask_to_alpha(coracao_sprite, al_map_rgb(0,0,0));
+    if (!coracao_sprite) {
+        printf("Erro ao carregar sprite dos corações!\n");
+        // Libere recursos e retorne!
+    }
+    int CORACAO_W = 100 / 3; // 3 sprites na horizontal
+    int CORACAO_H = 35;
+
+    int vida = 50;//ou outro valor inicial
 
     while (state != EXIT) {
         if (state == MENU) {
@@ -443,6 +475,91 @@ int main() {
                     0
                 );
 
+                // Bounding box do inimigo
+                float fogo_w = fogo_frame_w * escala;
+                float fogo_h = fogo_frame_h * escala;
+
+                if (
+                    fogo.x < player->x + player->side/2 &&
+                    fogo.x + fogo_w > player->x - player->side/2 &&
+                    fogo.y < player->y + player->side/2 &&
+                    fogo.y + fogo_h > player->y - player->side/2
+                ) {
+                    vida--;
+                    // Opcional: empurra o player ou inimigo, ou dá invencibilidade temporária
+                }
+
+                static int chama_timer = 0;
+                chama_timer++;
+                if (chama_timer > 70){//lança a cada 70 frames
+                    chama_timer = 0;
+                    for (int i = 0; i < MAX_CHAMAS; i++) {
+                        if (!chamas[i].ativa) {
+                            chamas[i].ativa = 1;
+                            // Boca do fogo: ajuste para a posição certa!
+                            chamas[i].x = fogo.x + (fogo_frame_w * escala) / 4; // ajuste para a boca
+                            chamas[i].y = fogo.y + (fogo_frame_h * escala) / 2;
+                            chamas[i].vx = -10; // velocidade para a esquerda
+                            chamas[i].vy = 0;
+                            break;
+                        }
+                    }
+                }
+
+                // Atualiza e desenha as chamas
+                for (int i = 0; i < MAX_CHAMAS; i++) {
+                    if (chamas[i].ativa) {
+                        chamas[i].x += chamas[i].vx;
+                        chamas[i].y += chamas[i].vy;
+                        al_draw_bitmap(chama_sprite, chamas[i].x, chamas[i].y, 0);
+
+                        // Colisão simples: bounding box
+                        if (
+                            chamas[i].x < player->x + player->side/2 &&
+                            chamas[i].x + CHAMA_W > player->x - player->side/2 &&
+                            chamas[i].y < player->y + player->side/2 &&
+                            chamas[i].y + CHAMA_H > player->y - player->side/2
+                        ) {
+                            vida--;
+                            chamas[i].ativa = 0; // desativa a chama ao colidir
+                        }
+
+                        // Desativa se sair da tela
+                        if (chamas[i].x < -CHAMA_W) {
+                            chamas[i].ativa = 0;
+                        }
+                    }
+                }
+
+                char vida_str[32];
+                sprintf(vida_str, "Vida: %d", vida);
+                al_draw_text(font, al_map_rgb(255,0,0), 20, 20, 0, vida_str);
+
+                int vida_max = 20; // exemplo
+                int num_coracoes = vida_max / 2;
+                for (int i = 0; i < num_coracoes; i++) {
+                    int tipo;
+                    if (vida >= (i+1)*2) {
+                        tipo = 0; // cheio
+                    } else if (vida == (i*2)+1) {
+                        tipo = 2; // meio
+                    } else {
+                        tipo = 1; // vazio
+                    }
+                    al_draw_bitmap_region(
+                        coracao_sprite,
+                        tipo * CORACAO_W, 0,
+                        CORACAO_W, CORACAO_H,
+                        20 + i * (CORACAO_W + 5), 20,
+                        0
+                    );
+                }
+
+                if (vida <= 0) {
+                    // Exibe mensagem, volta ao menu, etc.
+                    jogando = false;
+                }
+
                 al_flip_display();
                 al_rest(0.01);
             }
@@ -461,5 +578,7 @@ int main() {
     al_destroy_font(font);
     al_destroy_display(disp);
     al_destroy_event_queue(queue);
+    al_destroy_bitmap(chama_sprite);
+    al_destroy_bitmap(coracao_sprite);
     return 0;
 }
