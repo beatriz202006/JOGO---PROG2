@@ -102,7 +102,7 @@ int main() {
 
         if (state == GAME) {
             // Plataforma (chão)
-            int plataforma_y = Y_SCREEN - 272; // chão ->define onde o quadrado vai pousar
+            int plataforma_y = Y_SCREEN - 265; // chão ->define onde o quadrado vai pousar
             // Plataforma suspensa
             int plat_x = 400;
             int plat_w = 400;
