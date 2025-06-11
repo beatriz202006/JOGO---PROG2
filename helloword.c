@@ -330,7 +330,7 @@ int main() {
 
                             // Tiro para cima
                             if (key[ALLEGRO_KEY_UP]) {
-                                bullets[i].x = player->x;
+                                bullets[i].x = player->x + 10;
                                 bullets[i].y = player->y + player->side/2 - SPRITE_UP_H;
                                 bullets[i].vx = 0;
                                 bullets[i].vy = -15;
@@ -342,7 +342,7 @@ int main() {
                                 } else {
                                     bullets[i].x = player->x - SPRITE_DOWN_W/2;
                                 }
-                                bullets[i].y = player->y + player->side/2 - SPRITE_DOWN_H/2 + 20;
+                                bullets[i].y = player->y + player->side/2 - SPRITE_DOWN_H/2 + 40;
                                 bullets[i].vx = (direcao == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
                             }
@@ -353,7 +353,7 @@ int main() {
                                 } else {
                                     bullets[i].x = player->x - SPRITE_W/2;
                                 }
-                                bullets[i].y = player->y + player->side/2 - SPRITE_H + 50; // ajuste Y para sair da mão
+                                bullets[i].y = player->y + player->side/2 - SPRITE_H + 20;
                                 bullets[i].vx = (direcao == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
                             }
