@@ -19,6 +19,13 @@ struct Bullet {
 #define MAX_BULLETS 2000
 struct Bullet bullets[MAX_BULLETS] = {0};
 
+ struct inimigo {
+    float x, y;
+    int frame;
+    int direcao; // 0: direita, 1: esquerda
+    float velocidade;
+};
+
 int main() {
     al_init();
     al_init_primitives_addon();
@@ -112,13 +119,44 @@ int main() {
     GameState state = MENU;
     int menu_option = 0; // 0 = Iniciar, 1 = Sair
 
+    // Carrega a spritesheet do inimigo
+    ALLEGRO_BITMAP* fogo_sprite = al_load_bitmap("spritesfogofull.png");
+    al_convert_mask_to_alpha(fogo_sprite, al_map_rgb(0,0,0));
+    
+    if (!fogo_sprite) {
+        printf("Erro ao carregar sprite do inimigo!\n");
+        // Libere recursos e retorne!
+    }
+    int fogo_sprite_w = al_get_bitmap_width(fogo_sprite);
+    int fogo_sprite_h = al_get_bitmap_height(fogo_sprite);
+    int fogo_frame_w = fogo_sprite_w / 4; // 4 sprites na linha
+    int fogo_frame_h = fogo_sprite_h;     // só 1 linha
+
+    int plataforma_y = Y_SCREEN - 265; // chão
+    int plat_x = 400;
+    int plat_w = 400;
+    int plat_y = 750;
+    int plat_h = 20;
+
+    // Agora sim, inicialize o inimigo usando plat_y:
+    struct inimigo fogo;
+    fogo.x = X_SCREEN; // começa na direita da tela
+    float escala = 0.4; // mesma escala usada no desenho
+    fogo.y = plat_y - fogo_frame_h * escala; // alinhado com o topo da plataforma
+    fogo.direcao = 1; // sempre para a esquerda
+    fogo.velocidade = 3;
+    fogo.frame = 2; // frame 2: andando para a esquerda
+
     while (state != EXIT) {
         if (state == MENU) {
             bool menu_running = true;
             while (menu_running) {
-                al_clear_to_color(al_map_rgb(10, 10, 80));
+                al_clear_to_color(al_map_rgb(10, 10, 80)); // Fundo roxo/azul escuro
+
                 al_draw_text(font, al_map_rgb(255,255,255), X_SCREEN/2, Y_SCREEN/2-20, ALLEGRO_ALIGN_CENTRE, "INICIAR");
                 al_draw_text(font, al_map_rgb(255,255,255), X_SCREEN/2, Y_SCREEN/2+20, ALLEGRO_ALIGN_CENTRE, "SAIR");
+
+                // Destaque da opção selecionada
                 if (menu_option == 0)
                     al_draw_rectangle(X_SCREEN/2-40, Y_SCREEN/2-25, X_SCREEN/2+40, Y_SCREEN/2-5, al_map_rgb(255,255,0), 2);
                 else
@@ -371,6 +409,40 @@ int main() {
                     }
                 }
 
+                // --- Lógica e desenho do inimigo ---
+                static int passo = 0;
+                passo++;
+
+                // Sempre para a esquerda
+                fogo.x -= fogo.velocidade;
+
+                // Alterna entre andar e correr a cada 120 frames (~2 segundos)
+                if (passo % 240 < 120) {
+                    fogo.velocidade = 3; // andando
+                    fogo.frame = 2;      // frame 2: andando para a esquerda
+                } else {
+                    fogo.velocidade = 7; // correndo
+                    fogo.frame = 3;      // frame 3: correndo para a esquerda
+                }
+
+                // Se saiu da tela à esquerda, volta para a direita
+                if (fogo.x < -fogo_frame_w * 0.5) {
+                    fogo.x = X_SCREEN + fogo_frame_w * 0.5;
+                    passo = 0; // reinicia o ciclo de andar/correr
+                }
+
+                // Desenha o inimigo
+                float escala = 0.4;// 0.5 = metade do tamanho
+                al_draw_scaled_bitmap(
+                    fogo_sprite,
+                    fogo.frame * fogo_frame_w, 0, // origem do recorte
+                    fogo_frame_w, fogo_frame_h,   // tamanho do recorte
+                    fogo.x, fogo.y,               // posição na tela
+                    fogo_frame_w * escala,        // nova largura
+                    fogo_frame_h * escala,        // nova altura
+                    0
+                );
+
                 al_flip_display();
                 al_rest(0.01);
             }
@@ -380,6 +452,7 @@ int main() {
         }
     }
 
+   al_destroy_bitmap(fogo_sprite);
     al_destroy_bitmap(bullet_img);
     al_destroy_bitmap(sprite_up);
     al_destroy_bitmap(sprite_down);
