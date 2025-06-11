@@ -36,7 +36,7 @@ int main() {
     int bg_height = al_get_bitmap_height(bg);
 
     // Carrega a spritesheet do personagem
-    ALLEGRO_BITMAP* sprite_sheet = al_load_bitmap("spritesaguacorrigido.png");
+    ALLEGRO_BITMAP* sprite_sheet = al_load_bitmap("image.psd.png");
     if (!sprite_sheet) {
         printf("Erro ao carregar sprite do personagem!\n");
         al_destroy_bitmap(bg);
