@@ -60,6 +60,21 @@ int main() {
     int SPRITE_DOWN_W = 182; // 364 / 2
     int SPRITE_DOWN_H = 164;
 
+    // Carrega a spritesheet dos sprites "atirando para cima"
+    ALLEGRO_BITMAP* sprite_up = al_load_bitmap("spriteatirandocimafull.png");
+    if (!sprite_up) {
+        printf("Erro ao carregar sprite atirando para cima!\n");
+        al_destroy_bitmap(sprite_down);
+        al_destroy_bitmap(sprite_sheet);
+        al_destroy_bitmap(bg);
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
+    int SPRITE_UP_W = 106; // 212 / 2
+    int SPRITE_UP_H = 164;
+
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(200, 200, 200));
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(255,255,255));
     al_convert_mask_to_alpha(sprite_sheet, al_map_rgb(0,0,0));
@@ -209,8 +224,20 @@ int main() {
                 }
 
                 // --- Desenhar o personagem ---
+                // Atirando para cima (seta para cima + Z)
+                if (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]) {
+                    int up_col = (direcao == 0) ? 1 : 0; // 0 = esquerda, 1 = direita
+                    al_draw_bitmap_region(
+                        sprite_up,
+                        up_col * SPRITE_UP_W, 0,
+                        SPRITE_UP_W, SPRITE_UP_H,
+                        player->x - SPRITE_UP_W/2,
+                        player->y + player->side/2 - SPRITE_UP_H, // base alinhada
+                        0
+                    );
+                }
                 // Atirando abaixado (seta para baixo + Z)
-                if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
+                else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
                     int down_col = (direcao == 0) ? 1 : 0; // 0 = esquerda, 1 = direita
                     al_draw_bitmap_region(
                         sprite_down,
@@ -271,6 +298,7 @@ int main() {
         }
     }
 
+    al_destroy_bitmap(sprite_up);
     al_destroy_bitmap(sprite_down);
     al_destroy_bitmap(sprite_sheet);
     al_destroy_bitmap(bg);
