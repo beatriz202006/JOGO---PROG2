@@ -271,6 +271,8 @@ int main() {
             int chama_timer[NUM_FOGOS] = {0}; // NÃO static!
             int passo = 0; // NÃO static!
 
+            int altura_colisao = SPRITE_H;
+
             while (jogando) {
                 ALLEGRO_EVENT event;
                 if (al_get_next_event(queue, &event)) {
@@ -380,7 +382,9 @@ int main() {
                     );
                 }
                 // Atirando abaixado (seta para baixo + Z)
+               
                 else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
+                     altura_colisao = SPRITE_H * 0.5;
                     int down_col = (direcao == 0) ? 1 : 0; // 0 = esquerda, 1 = direita
                     al_draw_bitmap_region(
                         sprite_down,
@@ -393,6 +397,7 @@ int main() {
                 } else {
                     // Abaixado
                     if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                        altura_colisao = SPRITE_H * 0.5;
                         sprite_row = 1;
                         sprite_col = (direcao == 0) ? 0 : 3;
                     }
