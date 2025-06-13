@@ -11,7 +11,7 @@
 #define MAX_BULLETS 2000
 #define NUM_FOGOS 6
 
-typedef enum { MENU, GAME, EXIT } GameState;
+typedef enum { MENU, GAME, BOSS, EXIT } GameState;
 
 struct Bullet {
     float x, y;
@@ -191,6 +191,17 @@ int main() {
     }
 
     int dano_fogo_cooldown = 0;
+
+    // Carrega a imagem de fundo do chefe
+    ALLEGRO_BITMAP* bg_boss = al_load_bitmap("backgroundchefefull.png");
+    if (!bg_boss) {
+        printf("Erro ao carregar background do chefão!\n");
+    }
+
+    ALLEGRO_BITMAP* boss_unlocked_img = al_load_bitmap("chefedesbloqueado.png");
+    if (!boss_unlocked_img) {
+        printf("Erro ao carregar imagem de transição do chefão!\n");
+    }
 
     while (state != EXIT) {
         if (state == MENU) {
@@ -700,6 +711,7 @@ int main() {
                         fogos_respawn_timer[f] = 0;
                         fogos[f].x = -1000;
                     }
+                    state = BOSS; // Troca para a fase do chefão
                     jogando = false;
                 }
 
@@ -710,7 +722,35 @@ int main() {
             }
 
             square_destroy(player);
-            state = MENU;
+        }
+
+        if (state == BOSS) {
+            // Tela de transição: "Chefão desbloqueado!"
+            if (boss_unlocked_img) {
+                al_draw_scaled_bitmap(boss_unlocked_img, 0, 0, 2048, 3072, 0, 0, X_SCREEN, Y_SCREEN, 0);
+            } else {
+                al_clear_to_color(al_map_rgb(0, 0, 0));
+                al_draw_text(font, al_map_rgb(255, 255, 0), X_SCREEN/2, Y_SCREEN/2, ALLEGRO_ALIGN_CENTRE, "Chefão desbloqueado!");
+            }
+            al_flip_display();
+            al_rest(4.0); // mostra por 2 segundos
+
+            // Agora sim, entra no loop do chefão
+            bool boss_running = true;
+            while (boss_running) {
+                al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN + 100, 0);
+                al_flip_display();
+                al_rest(0.01);
+
+                ALLEGRO_EVENT event;
+                if (al_get_next_event(queue, &event)) {
+                    if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE)
+                        boss_running = false;
+                    else if (event.type == ALLEGRO_EVENT_KEY_DOWN && event.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
+                        boss_running = false;
+                }
+            }
+            state = MENU; // Volta para o menu depois do boss
         }
     }
 
@@ -726,5 +766,7 @@ int main() {
     al_destroy_event_queue(queue);
     al_destroy_bitmap(chama_sprite);
     al_destroy_bitmap(coracao_sprite);
+    al_destroy_bitmap(bg_boss);
+    al_destroy_bitmap(boss_unlocked_img);
     return 0;
 }
