@@ -31,6 +31,8 @@ struct inimigo {
 struct inimigo fogos[NUM_FOGOS];
 int fogos_vida[NUM_FOGOS];
 int fogos_respawn_timer[NUM_FOGOS] = {0};
+int fogo_derrotado[NUM_FOGOS] = {0};
+int fogo_morto_por_tiro[NUM_FOGOS] = {0};
 
 struct Chama {
     float x, y;
@@ -158,7 +160,8 @@ int main() {
         fogos[i].velocidade = 1;
         fogos[i].frame = 2;
         fogos_vida[i] = 2;
-        fogos_respawn_timer[i] = i * 1200; // bem maior!
+        fogos_respawn_timer[i] = i * 900;
+        fogo_derrotado[i] = 0;
     }
 
     // Carrega a spritesheet da chama
@@ -185,26 +188,25 @@ int main() {
     ALLEGRO_BITMAP* bg_menu = al_load_bitmap("menu.png");
     if (!bg_menu) {
         printf("Erro ao carregar background do menu!\n");
-        // trate o erro se quiser
     }
 
     int dano_fogo_cooldown = 0;
 
     while (state != EXIT) {
         if (state == MENU) {
-            rodada_fogos_acabou = false; // Resetar ao voltar para o menu
+            rodada_fogos_acabou = false;
+            for (int i = 0; i < NUM_FOGOS; i++) fogo_derrotado[i] = 0;
             bool menu_running = true;
             while (menu_running) {
                 if (bg_menu) {
-                    al_draw_bitmap(bg_menu, 0, -300, 0); // desenha o background do menu
+                    al_draw_bitmap(bg_menu, 0, -300, 0);
                 } else {
-                    al_clear_to_color(al_map_rgb(10, 10, 80)); // fallback
+                    al_clear_to_color(al_map_rgb(10, 10, 80));
                 }
 
                 al_draw_text(font, al_map_rgb(255,255,255), X_SCREEN/2, Y_SCREEN/2-20, ALLEGRO_ALIGN_CENTRE, "INICIAR");
                 al_draw_text(font, al_map_rgb(255,255,255), X_SCREEN/2, Y_SCREEN/2+20, ALLEGRO_ALIGN_CENTRE, "SAIR");
 
-                // Destaque da opção selecionada
                 if (menu_option == 0)
                     al_draw_rectangle(X_SCREEN/2-40, Y_SCREEN/2-25, X_SCREEN/2+40, Y_SCREEN/2-5, al_map_rgb(255,255,0), 2);
                 else
@@ -239,10 +241,15 @@ int main() {
                 fogos[i].velocidade = 1;
                 fogos[i].frame = 2;
                 fogos_vida[i] = 2;
-                fogos_respawn_timer[i] = i * 1200; // bem maior!
+                fogos_respawn_timer[i] = i * 1200;
+                fogo_derrotado[i] = 0;
+                fogo_morto_por_tiro[i] = 0; // <-- adicione aqui!
             }
 
-            // Zera as balas e chamas
+            // REINICIE A VIDA AQUI!
+            vida = 20;
+            rodada_fogos_acabou = false;
+
             for (int i = 0; i < MAX_BULLETS; i++) bullets[i].ativa = 0;
             for (int i = 0; i < MAX_CHAMAS; i++) chamas[i].ativa = 0;
 
@@ -267,11 +274,11 @@ int main() {
             float vel_y = 0;
             bool no_chao = false;
 
-            int direcao = 0; // 0 = direita, 1 = esquerda
+            int direcao = 0;
             int travamento_x = X_SCREEN / 2;
 
-            int chama_timer[NUM_FOGOS] = {0}; // NÃO static!
-            int passo = 0; // NÃO static!
+            int chama_timer[NUM_FOGOS] = {0};
+            int passo = 0;
 
             int altura_colisao = SPRITE_H;
 
@@ -500,26 +507,26 @@ int main() {
 
                 // --- Lógica, desenho e colisão dos inimigos ---
                 passo++;
-                bool todos_mortos = true;
                 for (int f = 0; f < NUM_FOGOS; f++) {
-                    if (fogos_vida[f] > 0) todos_mortos = false;
-
                     // Se o fogo saiu da tela e ainda não acabou a rodada, mata e inicia timer de respawn
                     if (fogos_vida[f] > 0 && fogos[f].x < -fogo_frame_w * escala && !rodada_fogos_acabou) {
                         fogos_vida[f] = 0;
-                        fogos_respawn_timer[f] = 1200 + f * 400;
+                        fogos_respawn_timer[f] = 100 + f * 20;
                         fogos[f].x = -1000;
+                        fogo_derrotado[f] = 0;         // <-- Adicione esta linha!
+                        fogo_morto_por_tiro[f] = 0;    // <-- E esta!
                     }
 
                     // Se o fogo está morto e ainda não acabou a rodada, faz o respawn
-                    if (fogos_vida[f] == 0 && fogos_respawn_timer[f] > 0 && !rodada_fogos_acabou) {
+                    if (fogos_vida[f] == 0 && fogos_respawn_timer[f] > 0 && !rodada_fogos_acabou && !fogo_morto_por_tiro[f]) {
                         fogos_respawn_timer[f]--;
                         if (fogos_respawn_timer[f] == 0) {
                             fogos[f].x = X_SCREEN + rand() % 200;
                             fogos_vida[f] = 2;
-                            chama_timer[f] = -40; // atraso para a primeira chama
+                            chama_timer[f] = -40;
+                            fogo_derrotado[f] = 0;         // <-- Adicione esta linha!
+                            fogo_morto_por_tiro[f] = 0;    // <-- E esta!
                         }
-                        // IMPORTANTE: zera o timer de chama enquanto morto
                         chama_timer[f] = 0;
                         continue;
                     }
@@ -573,14 +580,14 @@ int main() {
                         fogo_top < player_bottom
                     ) {
                         if (dano_fogo_cooldown == 0) {
-                            vida -= 4; // tira 2 corações
-                            dano_fogo_cooldown = 60; // 60 frames de invencibilidade (~1 segundo)
+                            vida -= 4;
+                            dano_fogo_cooldown = 60;
                         }
                     }
 
                     // Colisão com balas
                     for (int i = 0; i < MAX_BULLETS; i++) {
-                        if (bullets[i].ativa && fogos_vida[f] > 0) {
+                        if (bullets[i].ativa && fogos_vida[f] > 0 && fogos[f].x >= 0) {
                             float bullet_left   = bullets[i].x - BULLET_W/2;
                             float bullet_right  = bullets[i].x + BULLET_W/2;
                             float bullet_top    = bullets[i].y;
@@ -593,7 +600,12 @@ int main() {
                                 bullet_top < fogo_bottom
                             ) {
                                 fogos_vida[f]--;
+                                if (fogos_vida[f] < 0) fogos_vida[f] = 0;
                                 bullets[i].ativa = 0;
+                                if (fogos_vida[f] == 0 && !fogo_derrotado[f]) {
+                                    fogo_derrotado[f] = 1;
+                                    fogo_morto_por_tiro[f] = 1;
+                                }
                             }
                         }
                     }
@@ -671,12 +683,21 @@ int main() {
                     );
                 }
 
+                // Adicionei este bloco para imprimir o estado dos inimigos
+                for (int f = 0; f < NUM_FOGOS; f++) {
+                    printf("fogo[%d]: vida=%d, respawn=%d, derrotado=%d, x=%.1f\n", f, fogos_vida[f], fogos_respawn_timer[f], fogo_derrotado[f], fogos[f].x);
+                }
+
                 if (vida <= 0) {
                     jogando = false;
                 }
 
-                // Se todos os fogos morreram, avance para o chefe!
-                if (todos_mortos && !rodada_fogos_acabou) {
+                // Se todos os fogos estão mortos E todos foram mortos por tiro, avance para o chefe!
+                bool todos_derrotados = true;
+                for (int f = 0; f < NUM_FOGOS; f++) {
+                    if (fogos_vida[f] > 0 || !fogo_morto_por_tiro[f]) todos_derrotados = false;
+                }
+                if (todos_derrotados && !rodada_fogos_acabou) {
                     rodada_fogos_acabou = true;
                     for (int f = 0; f < NUM_FOGOS; f++) {
                         fogos_vida[f] = 0;
