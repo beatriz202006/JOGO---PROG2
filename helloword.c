@@ -587,7 +587,7 @@ int main() {
 
                     // Colisão com balas
                     for (int i = 0; i < MAX_BULLETS; i++) {
-                        if (bullets[i].ativa && fogos_vida[f] > 0 && fogos[f].x >= 0) {
+                        if (bullets[i].ativa && fogos_vida[f] > 0 && fogos[f].x > 0 && fogos[f].x < X_SCREEN - fogo_frame_w * escala) {
                             float bullet_left   = bullets[i].x - BULLET_W/2;
                             float bullet_right  = bullets[i].x + BULLET_W/2;
                             float bullet_top    = bullets[i].y;
