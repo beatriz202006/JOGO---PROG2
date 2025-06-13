@@ -149,6 +149,14 @@ int main() {
     int BULLET_W = 22;
     int BULLET_H = 33;
 
+    // Carrega a nova imagem da bala para a fase do boss
+    ALLEGRO_BITMAP* bullet_boss_img = al_load_bitmap("projetilaguaboss.png"); // ou o nome do seu arquivo
+    if (!bullet_boss_img) {
+        printf("Erro ao carregar sprite da bala do boss!\n");
+    }
+    int BULLET_BOSS_W = 52;
+    int BULLET_BOSS_H = 78;
+
     GameState state = MENU;
     int menu_option = 0; // 0 = Iniciar, 1 = Sair
 
@@ -542,7 +550,7 @@ int main() {
                     if (bullets[i].ativa) {
                         bullets[i].x += bullets[i].vx;
                         bullets[i].y += bullets[i].vy;
-                        al_draw_bitmap(bullet_img, bullets[i].x - BULLET_W/2, bullets[i].y, 0);
+                        al_draw_bitmap(bullet_img, bullets[i].x - BULLET_BOSS_W/2, bullets[i].y, 0);
                     }
                 }
 
@@ -932,7 +940,7 @@ int main() {
                     if (bullets[i].ativa) {
                         bullets[i].x += bullets[i].vx;
                         bullets[i].y += bullets[i].vy;
-                        al_draw_bitmap(bullet_img, bullets[i].x - BULLET_W/2, bullets[i].y, 0);
+                        al_draw_bitmap(bullet_boss_img, bullets[i].x - BULLET_BOSS_W/2, bullets[i].y, 0);
                     }
                 }
 
@@ -1056,5 +1064,6 @@ int main() {
     al_destroy_bitmap(coracao_sprite);
     al_destroy_bitmap(bg_boss);
     al_destroy_bitmap(boss_unlocked_img);
+    al_destroy_bitmap(bullet_boss_img);
     return 0;
 }
