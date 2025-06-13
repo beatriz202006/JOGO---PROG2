@@ -683,10 +683,6 @@ int main() {
                     );
                 }
 
-                // Adicionei este bloco para imprimir o estado dos inimigos
-                for (int f = 0; f < NUM_FOGOS; f++) {
-                    printf("fogo[%d]: vida=%d, respawn=%d, derrotado=%d, x=%.1f\n", f, fogos_vida[f], fogos_respawn_timer[f], fogo_derrotado[f], fogos[f].x);
-                }
 
                 if (vida <= 0) {
                     jogando = false;
