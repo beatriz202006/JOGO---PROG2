@@ -10,6 +10,7 @@
 #define MAX_CHAMAS 500
 #define MAX_BULLETS 2000
 #define NUM_FOGOS 6
+#define MAX_BOLAS_FOGO 50
 
 typedef enum { MENU, GAME, BOSS, EXIT } GameState;
 
@@ -50,6 +51,14 @@ struct Boss {
     int cooldown_escudo;
     int frame_atual;
 };
+
+struct BolaFogo {
+    float x, y;
+    float vx, vy;
+    int ativa;
+};
+
+struct BolaFogo bolas_fogo[MAX_BOLAS_FOGO] = {0};
 
 int main() {
     al_init();
@@ -219,6 +228,14 @@ int main() {
 
     int BOSS_FRAME_W = 150;
     int BOSS_FRAME_H = 150;
+
+    // Carrega a imagem da bola de fogo
+    ALLEGRO_BITMAP* bola_fogo_sprite = al_load_bitmap("boladefogo2.png"); // ou o nome do seu arquivo
+    if (!bola_fogo_sprite) {
+        printf("Erro ao carregar sprite da bola de fogo!\n");
+    }
+    int BOLA_FOGO_W = 77;
+    int BOLA_FOGO_H = 78;
 
     while (state != EXIT) {
         if (state == MENU) {
@@ -979,7 +996,18 @@ int main() {
                 if (boss.cooldown_ataque == 0 && boss.estado != 2) {
                     boss.estado = 2; // atacando
                     boss.cooldown_ataque = 120; // 2 segundos
-                    // aqui você pode criar a bola de fogo
+                    
+                    // Criar a bola de fogo
+                    for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                        if (!bolas_fogo[i].ativa) {
+                            bolas_fogo[i].ativa = 1;
+                            bolas_fogo[i].x = boss.x; // posição da mão do boss
+                            bolas_fogo[i].y = boss.y - 180; // ajuste para altura da mão
+                            bolas_fogo[i].vx = -8; // velocidade para a esquerda
+                            bolas_fogo[i].vy = 0;
+                            break;
+                        }
+                    }
                 } else if (boss.cooldown_ataque == 60) {
                     boss.estado = 1; // parado
                 }
@@ -989,6 +1017,21 @@ int main() {
                     boss.cooldown_escudo = 180; // 3 segundos
                 } else if (boss.cooldown_escudo == 90) {
                     boss.estado = 1; // parado
+                }
+
+                // Atualiza e desenha as bolas de fogo
+                for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                    if (bolas_fogo[i].ativa) {
+                        bolas_fogo[i].x += bolas_fogo[i].vx;
+                        bolas_fogo[i].y += bolas_fogo[i].vy;
+                        
+                        al_draw_bitmap(bola_fogo_sprite, bolas_fogo[i].x, bolas_fogo[i].y, 0);
+                        
+                        // Desativa se sair da tela
+                        if (bolas_fogo[i].x < -BOLA_FOGO_W || bolas_fogo[i].x > X_SCREEN + BOLA_FOGO_W) {
+                            bolas_fogo[i].ativa = 0;
+                        }
+                    }
                 }
 
                 al_flip_display();
