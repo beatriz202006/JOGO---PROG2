@@ -926,7 +926,7 @@ int main() {
                                 } else {
                                     bullets[i].x = player_boss->x - SPRITE_W/2;
                                 }
-                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_H + 20;
+                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_H -5;
                                 bullets[i].vx = (direcao == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
                             }
