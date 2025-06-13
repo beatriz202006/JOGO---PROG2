@@ -158,7 +158,7 @@ int main() {
         fogos[i].velocidade = 1;
         fogos[i].frame = 2;
         fogos_vida[i] = 2;
-        fogos_respawn_timer[i] = i * 600; // bem maior!
+        fogos_respawn_timer[i] = i * 1200; // bem maior!
     }
 
     // Carrega a spritesheet da chama
@@ -239,7 +239,7 @@ int main() {
                 fogos[i].velocidade = 1;
                 fogos[i].frame = 2;
                 fogos_vida[i] = 2;
-                fogos_respawn_timer[i] = i * 600; // bem maior!
+                fogos_respawn_timer[i] = i * 1200; // bem maior!
             }
 
             // Zera as balas e chamas
@@ -507,7 +507,7 @@ int main() {
                     // Se o fogo saiu da tela e ainda não acabou a rodada, mata e inicia timer de respawn
                     if (fogos_vida[f] > 0 && fogos[f].x < -fogo_frame_w * escala && !rodada_fogos_acabou) {
                         fogos_vida[f] = 0;
-                        fogos_respawn_timer[f] = 600 + f * 200;
+                        fogos_respawn_timer[f] = 1200 + f * 400;
                         fogos[f].x = -1000;
                     }
 
@@ -517,6 +517,7 @@ int main() {
                         if (fogos_respawn_timer[f] == 0) {
                             fogos[f].x = X_SCREEN + rand() % 200;
                             fogos_vida[f] = 2;
+                            chama_timer[f] = -40; // atraso para a primeira chama
                         }
                         // IMPORTANTE: zera o timer de chama enquanto morto
                         chama_timer[f] = 0;
@@ -599,7 +600,7 @@ int main() {
 
                     // Lançar chamas (só se o fogo está vivo)
                     chama_timer[f]++;
-                    if (chama_timer[f] > 50) {
+                    if (chama_timer[f] > 70) {
                         chama_timer[f] = 0;
                         for (int i = 0; i < MAX_CHAMAS; i++) {
                             if (!chamas[i].ativa) {
