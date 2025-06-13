@@ -202,7 +202,7 @@ int main() {
     int dano_fogo_cooldown = 0;
 
     // Carrega a imagem de fundo do chefe
-    ALLEGRO_BITMAP* bg_boss = al_load_bitmap("backgroundchefefull.png");
+    ALLEGRO_BITMAP* bg_boss = al_load_bitmap("backgroundchefefull2.png");
     if (!bg_boss) {
         printf("Erro ao carregar background do chefão!\n");
     }
@@ -755,7 +755,7 @@ int main() {
             al_rest(2.0); // mostra por 2 segundos
 
             // Cria o player para a fase do boss
-            square* player_boss = square_create(50, 100, Y_SCREEN - 400, X_SCREEN, Y_SCREEN);
+            square* player_boss = square_create(50, 100, Y_SCREEN - 100, X_SCREEN, Y_SCREEN);
             bool boss_running = true;
             bool key[ALLEGRO_KEY_MAX] = {false};
             float vel_y = 0;
@@ -766,8 +766,8 @@ int main() {
 
             // Antes do loop do boss:
             struct Boss boss;
-            boss.x = X_SCREEN - 300; // canto direito da tela
-            boss.y = Y_SCREEN - 130; // alinhado ao chão do boss
+            boss.x = X_SCREEN - 350; // canto direito da tela
+            boss.y = Y_SCREEN - 10; // alinhado ao chão do boss
             boss.estado = 1; // parado
             boss.vida = 20;
             boss.cooldown_ataque = 0;
@@ -806,8 +806,8 @@ int main() {
                 if (!no_chao) {
                     player_boss->y += vel_y;
                     vel_y += 1.5;
-                    if (player_boss->y + player_boss->side/2 >= Y_SCREEN - 200) { // chão do boss
-                        player_boss->y = Y_SCREEN - 200 - player_boss->side/2;
+                    if (player_boss->y + player_boss->side/2 >= Y_SCREEN - 90) { // chão do boss
+                        player_boss->y = Y_SCREEN - 90 - player_boss->side/2;
                         vel_y = 0;
                         no_chao = true;
                     }
@@ -819,7 +819,7 @@ int main() {
                 }
 
                 // Desenha o background do boss
-                al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN + 100, 0);
+                al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, -100, X_SCREEN, Y_SCREEN + 100, 0);
 
                 // --- Desenhar o personagem (igual à fase normal) ---
                 int sprite_row = 0, sprite_col = 0;
@@ -954,16 +954,18 @@ int main() {
                     case 5: boss_sprite_row = 2; boss_sprite_col = 1; break; // dano
                     case 6: boss_sprite_row = 3; boss_sprite_col = 0; break; // morto
                 }
-                // Alinhar o pé do chefão ao chão do boss (Y_SCREEN - 200)
-                float boss_draw_y = (Y_SCREEN - 200) - (BOSS_FRAME_H * 2) + (BOSS_FRAME_H * 2);
-                // Isso é igual a: boss_draw_y = Y_SCREEN - 200;
+
+                float boss_draw_y = boss.y - (BOSS_FRAME_H * 2);
+                if (boss.estado == 2) { // atacando
+                    boss_draw_y += 60; // ajuste este valor
+                }
 
                 al_draw_scaled_bitmap(
                     boss_sprite,
                     boss_sprite_col * BOSS_FRAME_W, boss_sprite_row * BOSS_FRAME_H,
                     BOSS_FRAME_W, BOSS_FRAME_H,
                     boss.x,
-                    boss.y - (BOSS_FRAME_H * 2), // ou simplesmente Y_SCREEN - 200
+                    boss_draw_y, // ou simplesmente Y_SCREEN - 200
                     BOSS_FRAME_W * 2,
                     BOSS_FRAME_H * 2,
                     0
