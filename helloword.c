@@ -42,6 +42,15 @@ struct Chama {
 
 struct Chama chamas[MAX_CHAMAS] = {0};
 
+struct Boss {
+    float x, y;
+    int estado; // 0=escudo, 1=parado, 2=atacando, 3=andando, 4=desfazendo, 5=dano, 6=morto
+    int vida;
+    int cooldown_ataque;
+    int cooldown_escudo;
+    int frame_atual;
+};
+
 int main() {
     al_init();
     al_init_primitives_addon();
@@ -202,6 +211,14 @@ int main() {
     if (!boss_unlocked_img) {
         printf("Erro ao carregar imagem de transição do chefão!\n");
     }
+
+    ALLEGRO_BITMAP* boss_sprite = al_load_bitmap("chefe2.png");
+    if (!boss_sprite) {
+        printf("Erro ao carregar sprite do chefão!\n");
+    }
+
+    int BOSS_FRAME_W = 150;
+    int BOSS_FRAME_H = 150;
 
     while (state != EXIT) {
         if (state == MENU) {
@@ -374,8 +391,10 @@ int main() {
                     }
                 }
 
-                if (key[ALLEGRO_KEY_ESCAPE])
+                if (key[ALLEGRO_KEY_ESCAPE]) {
                     jogando = false;
+                    state = MENU; // Volta para o menu ao sair do loop
+                }
 
                 // Seleção do sprite
                 int sprite_row = 0, sprite_col = 0;
@@ -727,29 +746,253 @@ int main() {
         if (state == BOSS) {
             // Tela de transição: "Chefão desbloqueado!"
             if (boss_unlocked_img) {
-                al_draw_scaled_bitmap(boss_unlocked_img, 0, 0, 2048, 3072, 0, 0, X_SCREEN, Y_SCREEN, 0);
+                al_draw_scaled_bitmap(boss_unlocked_img, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN, 0);
             } else {
                 al_clear_to_color(al_map_rgb(0, 0, 0));
                 al_draw_text(font, al_map_rgb(255, 255, 0), X_SCREEN/2, Y_SCREEN/2, ALLEGRO_ALIGN_CENTRE, "Chefão desbloqueado!");
             }
             al_flip_display();
-            al_rest(4.0); // mostra por 2 segundos
+            al_rest(2.0); // mostra por 2 segundos
 
-            // Agora sim, entra no loop do chefão
+            // Cria o player para a fase do boss
+            square* player_boss = square_create(50, 100, Y_SCREEN - 400, X_SCREEN, Y_SCREEN);
             bool boss_running = true;
-            while (boss_running) {
-                al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN + 100, 0);
-                al_flip_display();
-                al_rest(0.01);
+            bool key[ALLEGRO_KEY_MAX] = {false};
+            float vel_y = 0;
+            bool no_chao = false;
+            int direcao = 0;
+            int altura_colisao = SPRITE_H;
+            int vida_boss = 20; // Exemplo de vida do player na fase do boss
 
+            // Antes do loop do boss:
+            struct Boss boss;
+            boss.x = X_SCREEN - 300; // canto direito da tela
+            boss.y = Y_SCREEN - 400; // alinhado ao chão do boss
+            boss.estado = 1; // parado
+            boss.vida = 20;
+            boss.cooldown_ataque = 0;
+            boss.cooldown_escudo = 0;
+            boss.frame_atual = 0;
+
+            while (boss_running) {
+                // Eventos
                 ALLEGRO_EVENT event;
                 if (al_get_next_event(queue, &event)) {
                     if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE)
                         boss_running = false;
-                    else if (event.type == ALLEGRO_EVENT_KEY_DOWN && event.keyboard.keycode == ALLEGRO_KEY_ESCAPE)
-                        boss_running = false;
+                    else if (event.type == ALLEGRO_EVENT_KEY_DOWN)
+                        key[event.keyboard.keycode] = true;
+                    else if (event.type == ALLEGRO_EVENT_KEY_UP)
+                        key[event.keyboard.keycode] = false;
                 }
+
+                // Movimento do player (horizontal)
+                if (key[ALLEGRO_KEY_LEFT]) {
+                    square_move(player_boss, 1, 0, X_SCREEN, Y_SCREEN);
+                    direcao = 1;
+                }
+                if (key[ALLEGRO_KEY_RIGHT]) {
+                    square_move(player_boss, 1, 1, X_SCREEN, Y_SCREEN);
+                    direcao = 0;
+                }
+
+                // Pulo
+                if ((key[ALLEGRO_KEY_SPACE] || key[ALLEGRO_KEY_UP]) && no_chao) {
+                    vel_y = -20;
+                    no_chao = false;
+                }
+
+                // Gravidade e chão do player (VOLTE PARA COMO ESTAVA ANTES)
+                if (!no_chao) {
+                    player_boss->y += vel_y;
+                    vel_y += 1.5;
+                    if (player_boss->y + player_boss->side/2 >= Y_SCREEN - 200) { // chão do boss
+                        player_boss->y = Y_SCREEN - 200 - player_boss->side/2;
+                        vel_y = 0;
+                        no_chao = true;
+                    }
+                }
+
+                if (key[ALLEGRO_KEY_ESCAPE]) {
+                    boss_running = false;
+                    state = MENU;
+                }
+
+                // Desenha o background do boss
+                al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN + 100, 0);
+
+                // --- Desenhar o personagem (igual à fase normal) ---
+                int sprite_row = 0, sprite_col = 0;
+                if (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]) {
+                    int up_col = (direcao == 0) ? 1 : 0;
+                    al_draw_bitmap_region(
+                        sprite_up,
+                        up_col * SPRITE_UP_W, 0,
+                        SPRITE_UP_W, SPRITE_UP_H,
+                        player_boss->x - SPRITE_UP_W/2,
+                        player_boss->y + player_boss->side/2 - SPRITE_UP_H,
+                        0
+                    );
+                } else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
+                    altura_colisao = SPRITE_H * 0.5;
+                    int down_col = (direcao == 0) ? 1 : 0;
+                    al_draw_bitmap_region(
+                        sprite_down,
+                        down_col * SPRITE_DOWN_W, 0,
+                        SPRITE_DOWN_W, SPRITE_DOWN_H,
+                        player_boss->x - SPRITE_DOWN_W/2,
+                        player_boss->y + player_boss->side/2 - SPRITE_DOWN_H,
+                        0
+                    );
+                } else {
+                    if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                        altura_colisao = SPRITE_H * 0.5;
+                        sprite_row = 1;
+                        sprite_col = (direcao == 0) ? 0 : 3;
+                    } else if (key[ALLEGRO_KEY_Z]) {
+                        sprite_row = 2;
+                        sprite_col = (direcao == 0) ? 1 : 2;
+                    } else if (!no_chao) {
+                        sprite_row = 0;
+                        sprite_col = (direcao == 0) ? 1 : 2;
+                    } else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao) {
+                        sprite_row = 1;
+                        sprite_col = (direcao == 0) ? 1 : 2;
+                    } else if (no_chao) {
+                        sprite_row = 0;
+                        sprite_col = (direcao == 0) ? 0 : 3;
+                    }
+                    al_draw_bitmap_region(
+                        sprite_sheet,
+                        sprite_col * SPRITE_W, sprite_row * SPRITE_H,
+                        SPRITE_W, SPRITE_H,
+                        player_boss->x - SPRITE_W/2,
+                        player_boss->y + player_boss->side/2 - SPRITE_H,
+                        0
+                    );
+                }
+
+                // Controle de cooldown para tiro contínuo
+                static double last_shot_time_boss = 0;
+                double now_boss = al_get_time();
+                double shot_delay_boss = 0.15;
+                if (key[ALLEGRO_KEY_Z] && now_boss - last_shot_time_boss > shot_delay_boss) {
+                    last_shot_time_boss = now_boss;
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (!bullets[i].ativa) {
+                            bullets[i].ativa = 1;
+                            if (key[ALLEGRO_KEY_UP]) {
+                                bullets[i].x = player_boss->x + 10;
+                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_UP_H;
+                                bullets[i].vx = 0;
+                                bullets[i].vy = -15;
+                            } else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                                if (direcao == 0) {
+                                    bullets[i].x = player_boss->x + SPRITE_DOWN_W/2;
+                                } else {
+                                    bullets[i].x = player_boss->x - SPRITE_DOWN_W/2;
+                                }
+                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_DOWN_H/2 + 40;
+                                bullets[i].vx = (direcao == 0) ? 15 : -15;
+                                bullets[i].vy = 0;
+                            } else {
+                                if (direcao == 0) {
+                                    bullets[i].x = player_boss->x + SPRITE_W/2;
+                                } else {
+                                    bullets[i].x = player_boss->x - SPRITE_W/2;
+                                }
+                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_H + 20;
+                                bullets[i].vx = (direcao == 0) ? 15 : -15;
+                                bullets[i].vy = 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                // Atualiza e desenha as balas
+                for (int i = 0; i < MAX_BULLETS; i++) {
+                    if (bullets[i].ativa) {
+                        bullets[i].x += bullets[i].vx;
+                        bullets[i].y += bullets[i].vy;
+                        al_draw_bitmap(bullet_img, bullets[i].x - BULLET_W/2, bullets[i].y, 0);
+                    }
+                }
+
+                // --- HUD do player ---
+                char vida_str[32];
+                sprintf(vida_str, "Vida: %d", vida_boss);
+                al_draw_text(font, al_map_rgb(255,0,0), 20, 20, 0, vida_str);
+
+                int vida_max = 20;
+                int num_coracoes = vida_max / 2;
+                for (int i = 0; i < num_coracoes; i++) {
+                    int tipo;
+                    if (vida_boss >= (i+1)*2) {
+                        tipo = 0;
+                    } else if (vida_boss == (i*2)+1) {
+                        tipo = 2;
+                    } else {
+                        tipo = 1;
+                    }
+                    al_draw_bitmap_region(
+                        coracao_sprite,
+                        tipo * CORACAO_W, 0,
+                        CORACAO_W, CORACAO_H,
+                        20 + i * (CORACAO_W + 5), 20,
+                        0
+                    );
+                }
+
+                int boss_sprite_col = 0, boss_sprite_row = 0;
+                switch (boss.estado) {
+                    case 0: boss_sprite_row = 0; boss_sprite_col = 0; break; // escudo
+                    case 1: boss_sprite_row = 0; boss_sprite_col = 1; break; // parado
+                    case 2: boss_sprite_row = 1; boss_sprite_col = 0; break; // atacando
+                    case 3: boss_sprite_row = 1; boss_sprite_col = 1; break; // andando
+                    case 4: boss_sprite_row = 2; boss_sprite_col = 0; break; // desfazendo
+                    case 5: boss_sprite_row = 2; boss_sprite_col = 1; break; // dano
+                    case 6: boss_sprite_row = 3; boss_sprite_col = 0; break; // morto
+                }
+                // Alinhar o pé do chefão ao chão do boss (Y_SCREEN - 200)
+                float boss_draw_y = (Y_SCREEN - 200) - (BOSS_FRAME_H * 2) + (BOSS_FRAME_H * 2);
+                // Isso é igual a: boss_draw_y = Y_SCREEN - 200;
+
+                al_draw_scaled_bitmap(
+                    boss_sprite,
+                    boss_sprite_col * BOSS_FRAME_W, boss_sprite_row * BOSS_FRAME_H,
+                    BOSS_FRAME_W, BOSS_FRAME_H,
+                    boss.x,
+                    boss.y - (BOSS_FRAME_H * 2), // ou simplesmente Y_SCREEN - 200
+                    BOSS_FRAME_W * 2,
+                    BOSS_FRAME_H * 2,
+                    0
+                );
+
+                
+                // Exemplo simples de alternância de estado
+                if (boss.cooldown_ataque > 0) boss.cooldown_ataque--;
+                if (boss.cooldown_escudo > 0) boss.cooldown_escudo--;
+
+                if (boss.cooldown_ataque == 0 && boss.estado != 2) {
+                    boss.estado = 2; // atacando
+                    boss.cooldown_ataque = 120; // 2 segundos
+                    // aqui você pode criar a bola de fogo
+                } else if (boss.cooldown_ataque == 60) {
+                    boss.estado = 1; // parado
+                }
+
+                if (boss.cooldown_escudo == 0 && boss.estado != 0) {
+                    boss.estado = 0; // escudo
+                    boss.cooldown_escudo = 180; // 3 segundos
+                } else if (boss.cooldown_escudo == 90) {
+                    boss.estado = 1; // parado
+                }
+
+                al_flip_display();
+                al_rest(0.01);
             }
+            square_destroy(player_boss);
             state = MENU; // Volta para o menu depois do boss
         }
     }
