@@ -767,7 +767,7 @@ int main() {
             // Antes do loop do boss:
             struct Boss boss;
             boss.x = X_SCREEN - 300; // canto direito da tela
-            boss.y = Y_SCREEN - 400; // alinhado ao chão do boss
+            boss.y = Y_SCREEN - 130; // alinhado ao chão do boss
             boss.estado = 1; // parado
             boss.vida = 20;
             boss.cooldown_ataque = 0;
