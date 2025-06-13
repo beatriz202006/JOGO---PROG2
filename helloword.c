@@ -158,7 +158,7 @@ int main() {
         fogos[i].velocidade = 1;
         fogos[i].frame = 2;
         fogos_vida[i] = 2;
-        fogos_respawn_timer[i] = i * 40; // cada fogo nasce com um delay diferente
+        fogos_respawn_timer[i] = i * 600; // bem maior!
     }
 
     // Carrega a spritesheet da chama
@@ -187,6 +187,8 @@ int main() {
         printf("Erro ao carregar background do menu!\n");
         // trate o erro se quiser
     }
+
+    int dano_fogo_cooldown = 0;
 
     while (state != EXIT) {
         if (state == MENU) {
@@ -231,13 +233,13 @@ int main() {
             // Inicializa os 6 inimigos para cada nova rodada!
             float escala = 0.4;
             for (int i = 0; i < NUM_FOGOS; i++) {
-                fogos[i].x = X_SCREEN + i * 400;
+                fogos[i].x = X_SCREEN + i * 1800;
                 fogos[i].y = plat_y - fogo_frame_h * escala;
                 fogos[i].direcao = 1;
-                fogos[i].velocidade = 3;
+                fogos[i].velocidade = 1;
                 fogos[i].frame = 2;
                 fogos_vida[i] = 2;
-                fogos_respawn_timer[i] = i * 40;
+                fogos_respawn_timer[i] = i * 600; // bem maior!
             }
 
             // Zera as balas e chamas
@@ -301,7 +303,7 @@ int main() {
                         for (int f = 0; f < NUM_FOGOS; f++) fogos[f].x -= player_speed;
                         for (int i = 0; i < MAX_BULLETS; i++) if (bullets[i].ativa) bullets[i].x -= player_speed;
                         for (int i = 0; i < MAX_CHAMAS; i++) if (chamas[i].ativa) chamas[i].x -= player_speed;
-                        plat_x -= player_speed; // se quiser mover a plataforma suspensa também
+                        plat_x -= player_speed;
                     }
                     andando = true;
                     if (key[ALLEGRO_KEY_RIGHT] && frame_counter % 3 == 0) correndo = true;
@@ -505,7 +507,7 @@ int main() {
                     // Se o fogo saiu da tela e ainda não acabou a rodada, mata e inicia timer de respawn
                     if (fogos_vida[f] > 0 && fogos[f].x < -fogo_frame_w * escala && !rodada_fogos_acabou) {
                         fogos_vida[f] = 0;
-                        fogos_respawn_timer[f] = 120 + f * 30;
+                        fogos_respawn_timer[f] = 600 + f * 200;
                         fogos[f].x = -1000;
                     }
 
@@ -516,17 +518,23 @@ int main() {
                             fogos[f].x = X_SCREEN + rand() % 200;
                             fogos_vida[f] = 2;
                         }
+                        // IMPORTANTE: zera o timer de chama enquanto morto
+                        chama_timer[f] = 0;
                         continue;
                     }
 
                     // Se acabou a rodada, nunca mais respawna
                     if (fogos_vida[f] <= 0 && rodada_fogos_acabou) {
                         fogos[f].x = -1000;
+                        chama_timer[f] = 0;
                         continue;
                     }
 
                     // Se está morto, não faz nada
-                    if (fogos_vida[f] <= 0) continue;
+                    if (fogos_vida[f] <= 0) {
+                        chama_timer[f] = 0;
+                        continue;
+                    }
 
                     // Movimento e animação
                     fogos[f].x -= fogos[f].velocidade;
@@ -563,7 +571,10 @@ int main() {
                         fogo_bottom > player_top &&
                         fogo_top < player_bottom
                     ) {
-                        vida--;
+                        if (dano_fogo_cooldown == 0) {
+                            vida -= 4; // tira 2 corações
+                            dano_fogo_cooldown = 60; // 60 frames de invencibilidade (~1 segundo)
+                        }
                     }
 
                     // Colisão com balas
@@ -586,9 +597,9 @@ int main() {
                         }
                     }
 
-                    // Lançar chamas
+                    // Lançar chamas (só se o fogo está vivo)
                     chama_timer[f]++;
-                    if (chama_timer[f] > 200) { //lança chamas a cada 200 frames
+                    if (chama_timer[f] > 50) {
                         chama_timer[f] = 0;
                         for (int i = 0; i < MAX_CHAMAS; i++) {
                             if (!chamas[i].ativa) {
@@ -603,13 +614,20 @@ int main() {
                     }
                 }
 
-                // Atualiza e desenha as chamas
+                // --- Desenhar e atualizar as chamas ---
                 for (int i = 0; i < MAX_CHAMAS; i++) {
                     if (chamas[i].ativa) {
                         chamas[i].x += chamas[i].vx;
                         chamas[i].y += chamas[i].vy;
                         al_draw_bitmap(chama_sprite, chamas[i].x, chamas[i].y, 0);
 
+                        // Desativa se sair da tela
+                        if (chamas[i].x < -CHAMA_W || chamas[i].x > X_SCREEN + CHAMA_W ||
+                            chamas[i].y < -CHAMA_H || chamas[i].y > Y_SCREEN + CHAMA_H) {
+                            chamas[i].ativa = 0;
+                        }
+
+                        // Colisão com o player
                         float chama_left   = chamas[i].x;
                         float chama_right  = chamas[i].x + CHAMA_W;
                         float chama_top    = chamas[i].y;
@@ -621,16 +639,13 @@ int main() {
                             chama_bottom > player_top &&
                             chama_top < player_bottom
                         ) {
-                            vida--;
-                            chamas[i].ativa = 0;
-                        }
-
-                        if (chamas[i].x < -CHAMA_W) {
-                            chamas[i].ativa = 0;
+                            vida -= 1; // meio coração
+                            chamas[i].ativa = 0; // desativa a chama após causar dano
                         }
                     }
                 }
 
+                // --- HUD e fim de jogo ---
                 char vida_str[32];
                 sprintf(vida_str, "Vida: %d", vida);
                 al_draw_text(font, al_map_rgb(255,0,0), 20, 20, 0, vida_str);
@@ -665,10 +680,12 @@ int main() {
                     for (int f = 0; f < NUM_FOGOS; f++) {
                         fogos_vida[f] = 0;
                         fogos_respawn_timer[f] = 0;
-                        fogos[f].x = -1000; // Retira da tela
+                        fogos[f].x = -1000;
                     }
                     jogando = false;
                 }
+
+                if (dano_fogo_cooldown > 0) dano_fogo_cooldown--;
 
                 al_flip_display();
                 al_rest(0.01);
