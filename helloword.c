@@ -67,16 +67,24 @@ struct BolaFogo {
 
 struct BolaFogo bolas_fogo[MAX_BOLAS_FOGO] = {0};
 
-int get_boss_vida_sprite(struct Boss boss) {
-    if (boss.estado == BOSS_MORTO) return 5; // barra vazia
-    else if (boss.estado == BOSS_DESFAZENDO || boss.vida <= 3) return 4; // barra quase vazia
-    else if (boss.vida <= 6) return 2;
-    else if (boss.vida <= 12) return 3;
-    else if (boss.vida <= 18) return 1;
-    else return 0;
+int boss_bar_col(struct Boss boss) {
+    if (boss.estado == BOSS_MORTO) return 1; // última coluna
+    if (boss.estado == BOSS_DESFAZENDO) return 1;
+    if (boss.vida > 12) return 0;
+    if (boss.vida > 6) return 0;
+    if (boss.vida > 3) return 0;
+    if (boss.vida > 0) return 1;
+    return 1;
 }
-
-
+int boss_bar_row(struct Boss boss) {
+    if (boss.estado == BOSS_MORTO) return 2; // última linha
+    if (boss.estado == BOSS_DESFAZENDO) return 1; // linha do finzinho
+    if (boss.vida > 12) return 0; // cheia
+    if (boss.vida > 6) return 1; // tomou um dano
+    if (boss.vida > 3) return 2; // metade
+    if (boss.vida > 0) return 1; // finzinho
+    return 2; // vazia
+}
 
 void boss_lanca_bola_fogo(struct Boss *boss) {
     for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
@@ -90,6 +98,7 @@ void boss_lanca_bola_fogo(struct Boss *boss) {
         }
     }
 }
+
 int main() {
     al_init();
     al_init_primitives_addon();
@@ -779,259 +788,275 @@ int main() {
             int boss_andando_bola_timer = 0;
             int boss_hit_counter = 0;
 
-            while (boss_running) {
-
-                // --- CONTROLE DO PLAYER ---
-                ALLEGRO_EVENT event;
-                if (al_get_next_event(queue, &event)) {
-                    if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE)
-                        boss_running = false;
-                    else if (event.type == ALLEGRO_EVENT_KEY_DOWN)
-                        key[event.keyboard.keycode] = true;
-                    else if (event.type == ALLEGRO_EVENT_KEY_UP)
-                        key[event.keyboard.keycode] = false;
+            
+            // --- BOSS LOOP ---
+           while (boss_running) {
+            // --- CONTROLE DO PLAYER ---
+            ALLEGRO_EVENT event;
+            if (al_get_next_event(queue, &event)) {
+                if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE)
+                    boss_running = false;
+                else if (event.type == ALLEGRO_EVENT_KEY_DOWN)
+                    key[event.keyboard.keycode] = true;
+                else if (event.type == ALLEGRO_EVENT_KEY_UP)
+                    key[event.keyboard.keycode] = false;
+            }
+            if (key[ALLEGRO_KEY_LEFT]) { square_move(player_boss, 1, 0, X_SCREEN, Y_SCREEN); direcao = 1; }
+            if (key[ALLEGRO_KEY_RIGHT]) { square_move(player_boss, 1, 1, X_SCREEN, Y_SCREEN); direcao = 0; }
+            if ((key[ALLEGRO_KEY_SPACE] || key[ALLEGRO_KEY_UP]) && no_chao) { vel_y = -20; no_chao = false; }
+            if (!no_chao) {
+                player_boss->y += vel_y;
+                vel_y += 1.5;
+                if (player_boss->y + player_boss->side/2 >= Y_SCREEN - 90) {
+                    player_boss->y = Y_SCREEN - 90 - player_boss->side/2;
+                    vel_y = 0; no_chao = true;
                 }
-                if (key[ALLEGRO_KEY_LEFT]) { square_move(player_boss, 1, 0, X_SCREEN, Y_SCREEN); direcao = 1; }
-                if (key[ALLEGRO_KEY_RIGHT]) { square_move(player_boss, 1, 1, X_SCREEN, Y_SCREEN); direcao = 0; }
-                if ((key[ALLEGRO_KEY_SPACE] || key[ALLEGRO_KEY_UP]) && no_chao) { vel_y = -20; no_chao = false; }
-                if (!no_chao) {
-                    player_boss->y += vel_y;
-                    vel_y += 1.5;
-                    if (player_boss->y + player_boss->side/2 >= Y_SCREEN - 90) {
-                        player_boss->y = Y_SCREEN - 90 - player_boss->side/2;
-                        vel_y = 0; no_chao = true;
+            }
+            if (key[ALLEGRO_KEY_ESCAPE]) { boss_running = false; state = MENU; }
+
+            al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, -100, X_SCREEN, Y_SCREEN + 100, 0);
+
+            // --- DESENHO DO PLAYER ---
+            int sprite_row = 0, sprite_col = 0;
+            if (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]) {
+                int up_col = (direcao == 0) ? 1 : 0;
+                al_draw_bitmap_region(sprite_up, up_col * SPRITE_UP_W, 0, SPRITE_UP_W, SPRITE_UP_H,
+                    player_boss->x - SPRITE_UP_W/2,
+                    player_boss->y + player_boss->side/2 - SPRITE_UP_H, 0);
+            } else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
+                altura_colisao = SPRITE_H * 0.5;
+                int down_col = (direcao == 0) ? 1 : 0;
+                al_draw_bitmap_region(sprite_down, down_col * SPRITE_DOWN_W, 0, SPRITE_DOWN_W, SPRITE_DOWN_H,
+                    player_boss->x - SPRITE_DOWN_W/2,
+                    player_boss->y + player_boss->side/2 - SPRITE_DOWN_H, 0);
+            } else {
+                if (key[ALLEGRO_KEY_DOWN] && no_chao) { altura_colisao = SPRITE_H * 0.5; sprite_row = 1; sprite_col = (direcao == 0) ? 0 : 3; }
+                else if (key[ALLEGRO_KEY_Z]) { sprite_row = 2; sprite_col = (direcao == 0) ? 1 : 2; }
+                else if (!no_chao) { sprite_row = 0; sprite_col = (direcao == 0) ? 1 : 2; }
+                else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao) { sprite_row = 1; sprite_col = (direcao == 0) ? 1 : 2; }
+                else if (no_chao) { sprite_row = 0; sprite_col = (direcao == 0) ? 0 : 3; }
+                al_draw_bitmap_region(sprite_sheet, sprite_col * SPRITE_W, sprite_row * SPRITE_H, SPRITE_W, SPRITE_H,
+                    player_boss->x - SPRITE_W/2,
+                    player_boss->y + player_boss->side/2 - SPRITE_H, 0);
+            }
+
+            static double last_shot_time_boss = 0;
+            double now_boss = al_get_time();
+            double shot_delay_boss = 0.15;
+            if (key[ALLEGRO_KEY_Z] && now_boss - last_shot_time_boss > shot_delay_boss) {
+                last_shot_time_boss = now_boss;
+                for (int i = 0; i < MAX_BULLETS; i++) {
+                    if (!bullets[i].ativa) {
+                        bullets[i].ativa = 1;
+                        if (key[ALLEGRO_KEY_UP]) {
+                            bullets[i].x = player_boss->x + 10;
+                            bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_UP_H;
+                            bullets[i].vx = 0;
+                            bullets[i].vy = -15;
+                        } else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                            if (direcao == 0) bullets[i].x = player_boss->x + SPRITE_DOWN_W/2;
+                            else bullets[i].x = player_boss->x - SPRITE_DOWN_W/2;
+                            bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_DOWN_H/2 + 40;
+                            bullets[i].vx = (direcao == 0) ? 15 : -15; bullets[i].vy = 0;
+                        } else {
+                            if (direcao == 0) bullets[i].x = player_boss->x + SPRITE_W/2;
+                            else bullets[i].x = player_boss->x - SPRITE_W/2;
+                            bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_H -5;
+                            bullets[i].vx = (direcao == 0) ? 15 : -15; bullets[i].vy = 0;
+                        }
+                        break;
                     }
                 }
-                if (key[ALLEGRO_KEY_ESCAPE]) { boss_running = false; state = MENU; }
-
-                al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, -100, X_SCREEN, Y_SCREEN + 100, 0);
-
-                // DESENHO DO PLAYER
-                int sprite_row = 0, sprite_col = 0;
-                if (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]) {
-                    int up_col = (direcao == 0) ? 1 : 0;
-                    al_draw_bitmap_region(sprite_up, up_col * SPRITE_UP_W, 0, SPRITE_UP_W, SPRITE_UP_H, player_boss->x - SPRITE_UP_W/2, player_boss->y + player_boss->side/2 - SPRITE_UP_H, 0);
-                } else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao) {
-                    altura_colisao = SPRITE_H * 0.5;
-                    int down_col = (direcao == 0) ? 1 : 0;
-                    al_draw_bitmap_region(sprite_down, down_col * SPRITE_DOWN_W, 0, SPRITE_DOWN_W, SPRITE_DOWN_H, player_boss->x - SPRITE_DOWN_W/2, player_boss->y + player_boss->side/2 - SPRITE_DOWN_H, 0);
-                } else {
-                    if (key[ALLEGRO_KEY_DOWN] && no_chao) { altura_colisao = SPRITE_H * 0.5; sprite_row = 1; sprite_col = (direcao == 0) ? 0 : 3; }
-                    else if (key[ALLEGRO_KEY_Z]) { sprite_row = 2; sprite_col = (direcao == 0) ? 1 : 2; }
-                    else if (!no_chao) { sprite_row = 0; sprite_col = (direcao == 0) ? 1 : 2; }
-                    else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao) { sprite_row = 1; sprite_col = (direcao == 0) ? 1 : 2; }
-                    else if (no_chao) { sprite_row = 0; sprite_col = (direcao == 0) ? 0 : 3; }
-                    al_draw_bitmap_region(sprite_sheet, sprite_col * SPRITE_W, sprite_row * SPRITE_H, SPRITE_W, SPRITE_H, player_boss->x - SPRITE_W/2, player_boss->y + player_boss->side/2 - SPRITE_H, 0);
+            }
+            for (int i = 0; i < MAX_BULLETS; i++) {
+                if (bullets[i].ativa) {
+                    bullets[i].x += bullets[i].vx;
+                    bullets[i].y += bullets[i].vy;
+                    al_draw_bitmap(bullet_boss_img, bullets[i].x - BULLET_BOSS_W/2, bullets[i].y, 0);
                 }
-                static double last_shot_time_boss = 0;
-                double now_boss = al_get_time();
-                double shot_delay_boss = 0.15;
-                if (key[ALLEGRO_KEY_Z] && now_boss - last_shot_time_boss > shot_delay_boss) {
-                    last_shot_time_boss = now_boss;
-                    for (int i = 0; i < MAX_BULLETS; i++) {
-                        if (!bullets[i].ativa) {
-                            bullets[i].ativa = 1;
-                            if (key[ALLEGRO_KEY_UP]) {
-                                bullets[i].x = player_boss->x + 10;
-                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_UP_H;
-                                bullets[i].vx = 0;
-                                bullets[i].vy = -15;
-                            } else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
-                                if (direcao == 0) bullets[i].x = player_boss->x + SPRITE_DOWN_W/2;
-                                else bullets[i].x = player_boss->x - SPRITE_DOWN_W/2;
-                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_DOWN_H/2 + 40;
-                                bullets[i].vx = (direcao == 0) ? 15 : -15; bullets[i].vy = 0;
-                            } else {
-                                if (direcao == 0) bullets[i].x = player_boss->x + SPRITE_W/2;
-                                else bullets[i].x = player_boss->x - SPRITE_W/2;
-                                bullets[i].y = player_boss->y + player_boss->side/2 - SPRITE_H -5;
-                                bullets[i].vx = (direcao == 0) ? 15 : -15; bullets[i].vy = 0;
-                            }
+            }
+            // HUD do player
+            int vida_max = 20, num_coracoes = vida_max / 2;
+            for (int i = 0; i < num_coracoes; i++) {
+                int tipo = (vida_boss >= (i+1)*2) ? 0 : (vida_boss == (i*2)+1) ? 2 : 1;
+                al_draw_bitmap_region(coracao_sprite, tipo * CORACAO_W, 0, CORACAO_W, CORACAO_H,
+                    20 + i * (CORACAO_W + 5), 20, 0);
+            }
+
+            // --------- LÓGICA DO BOSS ---------
+            // --- BLOQUEIO ABSOLUTO DO DESFAZENDO/MORTO ---
+            if (boss.estado == BOSS_DESFAZENDO) {
+                boss.vida = 3;
+                boss_desfazendo_timer--;
+                al_draw_scaled_bitmap(boss_desfazendo_sprite, 0, 0, BOSS_DESFAZENDO_W, BOSS_DESFAZENDO_H,
+                    boss.x, boss.y - BOSS_DESFAZENDO_H - 30, BOSS_DESFAZENDO_W * 2, BOSS_DESFAZENDO_H * 2, 0);
+                int vida_col = boss_bar_col(boss);
+                int vida_row = boss_bar_row(boss);
+                al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
+                    X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
+                al_flip_display();
+                al_rest(0.01);
+                if (boss_desfazendo_timer <= 0) {
+                    boss.estado = BOSS_MORTO;
+                    boss.vida = 0;
+                }
+                continue;
+            }
+            if (boss.estado == BOSS_MORTO) {
+                al_draw_scaled_bitmap(boss_morto_sprite, 0, 0, BOSS_MORTO_W, BOSS_MORTO_H,
+                    boss.x, boss.y - BOSS_MORTO_H - 30, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
+                int vida_col = boss_bar_col(boss);
+                int vida_row = boss_bar_row(boss);
+                al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
+                    X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
+                al_flip_display();
+                al_rest(2.0);
+                boss_running = false;
+                state = MENU;
+                continue;
+            }
+
+            // --- TRANSIÇÃO PARA DESFAZENDO ---
+            if (boss.vida <= 3 && boss.estado != BOSS_DESFAZENDO && boss.estado != BOSS_MORTO) {
+                boss.estado = BOSS_DESFAZENDO;
+                boss.vida = 3;
+                boss_desfazendo_timer = 120;
+                continue;
+            }
+
+            // --- CICLO NORMAL DO BOSS ---
+            if (boss.estado == BOSS_PARADO) {
+                if (boss_state_timer == 0) boss_state_timer = 120;
+                boss_state_timer--;
+                if (boss_state_timer <= 0) { boss.estado = BOSS_ESCUDO; boss_state_timer = 0; }
+            } else if (boss.estado == BOSS_ESCUDO) {
+                if (boss_state_timer == 0) boss_state_timer = 120;
+                boss_state_timer--;
+                if (boss_state_timer <= 0) { boss.estado = BOSS_ANDANDO; boss_state_timer = 0; passos_dados = 0; boss_andando_bola_timer = 0; }
+            } else if (boss.estado == BOSS_ANDANDO) {
+                boss_andando_bola_timer++;
+                if (boss_andando_bola_timer >= 32) {
+                    for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                        if (!bolas_fogo[i].ativa) {
+                            bolas_fogo[i].ativa = 1;
+                            bolas_fogo[i].x = boss.x - 20;
+                            bolas_fogo[i].y = boss.y - 180;
+                            bolas_fogo[i].vx = -8;
+                            bolas_fogo[i].vy = 0;
                             break;
                         }
                     }
+                    boss_andando_bola_timer = 0;
                 }
+                if (passos_dados < 2) {
+                    if (boss_state_timer == 0) boss_state_timer = 30;
+                    boss_state_timer--;
+                    if (boss_state_timer <= 0) {
+                        boss.x -= 50;
+                        passos_dados++;
+                        boss_state_timer = 30;
+                    }
+                } else {
+                    boss.estado = BOSS_PARADO;
+                    boss_state_timer = 0;
+                }
+            } else if (boss.estado == BOSS_DANO) {
+                if (boss_dano_timer == 0) boss_dano_timer = 120;
+                boss_dano_timer--;
+                if (boss_dano_timer <= 0) {
+                    boss.estado = BOSS_ESCUDO;
+                    boss_state_timer = 0;
+                    boss_dano_timer = 0;
+                }
+            }
+
+            // --- DESENHO DOS SPRITES DO BOSS NORMAL ---
+            float boss_draw_y = boss.y - (BOSS_FRAME_H * 2);
+            if (boss.estado == BOSS_ATACANDO) {
+                al_draw_scaled_bitmap(boss_atacando_sprite, 0, 0, BOSS_ATACANDO_W, BOSS_ATACANDO_H,
+                    boss.x, boss_draw_y + 70, BOSS_ATACANDO_W * 2, BOSS_ATACANDO_H * 2, 0);
+            } else if (boss.estado == BOSS_ANDANDO) {
+                al_draw_scaled_bitmap(boss_andando_sprite, 0, 0, BOSS_ANDANDO_W, BOSS_ANDANDO_H,
+                    boss.x, boss_draw_y + 70, BOSS_ANDANDO_W * 2, BOSS_ANDANDO_H * 2, 0);
+            } else if (boss.estado == BOSS_DANO) {
+                al_draw_scaled_bitmap(boss_dano_sprite, 0, 0, BOSS_DANO_W, BOSS_DANO_H,
+                    boss.x, boss_draw_y + 70, BOSS_DANO_W * 2, BOSS_DANO_H * 2, 0);
+            } else if (boss.estado == BOSS_PARADO || boss.estado == BOSS_ESCUDO) {
+                int boss_sprite_col = boss.estado == BOSS_ESCUDO ? 0 : 1;
+                int boss_sprite_row = 0;
+                al_draw_scaled_bitmap(boss_sprite, boss_sprite_col * BOSS_FRAME_W, boss_sprite_row * BOSS_FRAME_H, BOSS_FRAME_W, BOSS_FRAME_H,
+                    boss.x, boss_draw_y, BOSS_FRAME_W * 2, BOSS_FRAME_H * 2, 0);
+            }
+
+            // --- BARRA DE VIDA CORRETA ---
+            int vida_col = boss_bar_col(boss);
+            int vida_row = boss_bar_row(boss);
+            al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
+                X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
+
+            // --- COLISÃO DOS TIROS ---
+            if (boss.estado == BOSS_ANDANDO || boss.estado == BOSS_DANO) {
+                float boss_left   = boss.x;
+                float boss_right  = boss.x + (BOSS_FRAME_W * 2);
+                float boss_top    = boss.y - (BOSS_FRAME_H * 2);
+                float boss_bottom = boss.y;
                 for (int i = 0; i < MAX_BULLETS; i++) {
                     if (bullets[i].ativa) {
-                        bullets[i].x += bullets[i].vx;
-                        bullets[i].y += bullets[i].vy;
-                        al_draw_bitmap(bullet_boss_img, bullets[i].x - BULLET_BOSS_W/2, bullets[i].y, 0);
-                    }
-                }
-                // HUD do player
-                int vida_max = 20, num_coracoes = vida_max / 2;
-                for (int i = 0; i < num_coracoes; i++) {
-                    int tipo = (vida_boss >= (i+1)*2) ? 0 : (vida_boss == (i*2)+1) ? 2 : 1;
-                    al_draw_bitmap_region(coracao_sprite, tipo * CORACAO_W, 0, CORACAO_W, CORACAO_H, 20 + i * (CORACAO_W + 5), 20, 0);
-                }
-
-                // --------- LÓGICA DO BOSS ---------
-                // --- ENTRA EM DESFAZENDO QUANDO VIDA <= 3 ---
-                 // Quando a vida <= 3, vai para DESFAZENDO e trava lá até acabar timer, depois MORTO.
-                if ((boss.estado != BOSS_DESFAZENDO && boss.estado != BOSS_MORTO) && boss.vida <= 3) {
-                    boss.estado = BOSS_DESFAZENDO;
-                    boss_desfazendo_timer = 120; // 2 segundos se 60fps
-                }
-
-                if (boss.estado == BOSS_DESFAZENDO) {
-                    boss_desfazendo_timer--;
-                    // Sprite desfazendo
-                    al_draw_scaled_bitmap(boss_desfazendo_sprite, 0, 0, BOSS_DESFAZENDO_W, BOSS_DESFAZENDO_H, boss.x, boss.y - BOSS_DESFAZENDO_H, BOSS_DESFAZENDO_W * 2, BOSS_DESFAZENDO_H * 2, 0);
-                    int sprite_vida = 4;
-                    int vida_col = sprite_vida % 2;
-                    int vida_row = sprite_vida / 2;
-                    al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H, X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
-                    // Não toma dano nem faz nada
-                    if (boss_desfazendo_timer <= 0) {
-                        boss.estado = BOSS_MORTO;
-                        boss.vida = 0;
-                    }
-                    al_flip_display();
-                    al_rest(0.01);
-                    if (boss.estado == BOSS_MORTO) {
-                        al_draw_scaled_bitmap(boss_morto_sprite, 0, 0, BOSS_MORTO_W, BOSS_MORTO_H, boss.x, boss.y - BOSS_MORTO_H, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
-                        int sprite_vida_morto = 5;
-                        int vida_col_m = sprite_vida_morto % 2;
-                        int vida_row_m = sprite_vida_morto / 2;
-                        al_draw_bitmap_region(boss_vida_sprite, vida_col_m * BOSS_VIDA_W, vida_row_m * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H, X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
-                        al_flip_display();
-                        al_rest(2.0);
-                        boss_running = false;
-                        state = MENU;
-                    }
-                    continue;
-                }
-
-                // --- CICLO NORMAL ---
-                if (boss.estado == BOSS_PARADO) {
-                    if (boss_state_timer == 0) boss_state_timer = 120;
-                    boss_state_timer--;
-                    if (boss_state_timer <= 0) { boss.estado = BOSS_ESCUDO; boss_state_timer = 0; }
-                } else if (boss.estado == BOSS_ESCUDO) {
-                    if (boss_state_timer == 0) boss_state_timer = 120;
-                    boss_state_timer--;
-                    if (boss_state_timer <= 0) { boss.estado = BOSS_ANDANDO; boss_state_timer = 0; passos_dados = 0; boss_andando_bola_timer = 0; }
-                } else if (boss.estado == BOSS_ANDANDO) {
-                    boss_andando_bola_timer++;
-                    if (boss_andando_bola_timer >= 32) {
-                        for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
-                            if (!bolas_fogo[i].ativa) {
-                                bolas_fogo[i].ativa = 1;
-                                bolas_fogo[i].x = boss.x - 20;
-                                bolas_fogo[i].y = boss.y - 180;
-                                bolas_fogo[i].vx = -8;
-                                bolas_fogo[i].vy = 0;
-                                break;
-                            }
-                        }
-                        boss_andando_bola_timer = 0;
-                    }
-                    if (passos_dados < 2) {
-                        if (boss_state_timer == 0) boss_state_timer = 30;
-                        boss_state_timer--;
-                        if (boss_state_timer <= 0) {
-                            boss.x -= 50;
-                            passos_dados++;
-                            boss_state_timer = 30;
-                        }
-                    } else {
-                        boss.estado = BOSS_PARADO;
-                        boss_state_timer = 0;
-                    }
-                } else if (boss.estado == BOSS_DANO) {
-                    if (boss_dano_timer == 0) boss_dano_timer = 120; // 2 segundos de dano
-                    boss_dano_timer--;
-                    if (boss_dano_timer <= 0) {
-                        boss.estado = BOSS_ESCUDO;
-                        boss_state_timer = 0;
-                        boss_dano_timer = 0;
-                    }
-                }
-
-                // --- SPRITES DO BOSS ---
-                float boss_draw_y = boss.y - (BOSS_FRAME_H * 2);
-                if (boss.estado == BOSS_ATACANDO) {
-                    al_draw_scaled_bitmap(boss_atacando_sprite, 0, 0, BOSS_ATACANDO_W, BOSS_ATACANDO_H, boss.x, boss_draw_y + 70, BOSS_ATACANDO_W * 2, BOSS_ATACANDO_H * 2, 0);
-                } else if (boss.estado == BOSS_ANDANDO) {
-                    al_draw_scaled_bitmap(boss_andando_sprite, 0, 0, BOSS_ANDANDO_W, BOSS_ANDANDO_H, boss.x, boss_draw_y + 70, BOSS_ANDANDO_W * 2, BOSS_ANDANDO_H * 2, 0);
-                } else if (boss.estado == BOSS_DANO) {
-                    al_draw_scaled_bitmap(boss_dano_sprite, 0, 0, BOSS_DANO_W, BOSS_DANO_H, boss.x, boss_draw_y + 70, BOSS_DANO_W * 2, BOSS_DANO_H * 2, 0);
-                } else if (boss.estado == BOSS_PARADO || boss.estado == BOSS_ESCUDO) {
-                    int boss_sprite_col = boss.estado == BOSS_ESCUDO ? 0 : 1;
-                    int boss_sprite_row = 0;
-                    al_draw_scaled_bitmap(boss_sprite, boss_sprite_col * BOSS_FRAME_W, boss_sprite_row * BOSS_FRAME_H, BOSS_FRAME_W, BOSS_FRAME_H, boss.x, boss_draw_y, BOSS_FRAME_W * 2, BOSS_FRAME_H * 2, 0);
-                }
-
-                // --- BARRA DE VIDA ---
-                int sprite_vida = get_boss_vida_sprite(boss);
-                int vida_col = sprite_vida % 2;
-                int vida_row = sprite_vida / 2;
-                al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H, X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
-
-                // --- COLISÃO DOS TIROS ---
-                if (boss.estado == BOSS_ANDANDO || boss.estado == BOSS_DANO) {
-                    float boss_left   = boss.x;
-                    float boss_right  = boss.x + (BOSS_FRAME_W * 2);
-                    float boss_top    = boss.y - (BOSS_FRAME_H * 2);
-                    float boss_bottom = boss.y;
-                    for (int i = 0; i < MAX_BULLETS; i++) {
-                        if (bullets[i].ativa) {
-                            float bullet_left   = bullets[i].x - BULLET_BOSS_W/2;
-                            float bullet_right  = bullets[i].x + BULLET_BOSS_W/2;
-                            float bullet_top    = bullets[i].y;
-                            float bullet_bottom = bullets[i].y + BULLET_BOSS_H;
-                            if (bullet_right > boss_left && bullet_left < boss_right && bullet_bottom > boss_top && bullet_top < boss_bottom) {
-                                boss_hit_counter++;
-                                bullets[i].ativa = 0;
-                                if (boss_hit_counter == 7) {
-                                    boss_hit_counter = 0;
+                        float bullet_left   = bullets[i].x - BULLET_BOSS_W/2;
+                        float bullet_right  = bullets[i].x + BULLET_BOSS_W/2;
+                        float bullet_top    = bullets[i].y;
+                        float bullet_bottom = bullets[i].y + BULLET_BOSS_H;
+                        if (bullet_right > boss_left && bullet_left < boss_right &&
+                            bullet_bottom > boss_top && bullet_top < boss_bottom) {
+                            boss_hit_counter++;
+                            bullets[i].ativa = 0;
+                            if (boss_hit_counter == 7) {
+                                boss_hit_counter = 0;
+                                if (boss.vida > 3) {
                                     boss.vida--;
-                                    if (boss.vida > 3) {
-                                        boss.estado = BOSS_DANO;
-                                        boss_dano_timer = 0;
-                                        boss_state_timer = 0;
-                                    }
-                                    // Se vida <=3, próximo ciclo já cai em desfazendo e trava lá
+                                    boss.estado = BOSS_DANO;
+                                    boss_dano_timer = 0;
+                                    boss_state_timer = 0;
                                 }
                             }
                         }
                     }
                 }
-
-
-                // BOLAS DE FOGO DO BOSS
-                for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
-                    if (bolas_fogo[i].ativa) {
-                        bolas_fogo[i].x += bolas_fogo[i].vx;
-                        bolas_fogo[i].y += bolas_fogo[i].vy;
-                        al_draw_bitmap(bola_fogo_sprite, bolas_fogo[i].x, bolas_fogo[i].y, 0);
-                        if (bolas_fogo[i].x < -BOLA_FOGO_W || bolas_fogo[i].x > X_SCREEN + BOLA_FOGO_W) {
-                            bolas_fogo[i].ativa = 0;
-                        }
-                    }
-                }
-                // COLISÃO DAS BOLAS DE FOGO COM O PLAYER
-                float player_left   = player_boss->x - SPRITE_W/2;
-                float player_right  = player_boss->x + SPRITE_W/2;
-                float player_top    = player_boss->y + player_boss->side/2 - SPRITE_H;
-                float player_bottom = player_boss->y + player_boss->side/2;
-                for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
-                    if (bolas_fogo[i].ativa) {
-                        float bola_left   = bolas_fogo[i].x;
-                        float bola_right  = bolas_fogo[i].x + BOLA_FOGO_W;
-                        float bola_top    = bolas_fogo[i].y;
-                        float bola_bottom = bolas_fogo[i].y + BOLA_FOGO_H;
-                        if (bola_right > player_left && bola_left < player_right && bola_bottom > player_top && bola_top < player_bottom) {
-                            vida_boss -= 4;
-                            bolas_fogo[i].ativa = 0;
-                        }
-                    }
-                }
-                al_flip_display();
-                al_rest(0.01);
             }
 
-            square_destroy(player_boss);
+            // --- BOLAS DE FOGO DO BOSS ---
+            for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                if (bolas_fogo[i].ativa) {
+                    bolas_fogo[i].x += bolas_fogo[i].vx;
+                    bolas_fogo[i].y += bolas_fogo[i].vy;
+                    al_draw_bitmap(bola_fogo_sprite, bolas_fogo[i].x, bolas_fogo[i].y, 0);
+                    if (bolas_fogo[i].x < -BOLA_FOGO_W || bolas_fogo[i].x > X_SCREEN + BOLA_FOGO_W) {
+                        bolas_fogo[i].ativa = 0;
+                    }
+                }
+            }
+            // --- COLISÃO DAS BOLAS DE FOGO COM O PLAYER ---
+            float player_left   = player_boss->x - SPRITE_W/2;
+            float player_right  = player_boss->x + SPRITE_W/2;
+            float player_top    = player_boss->y + player_boss->side/2 - SPRITE_H;
+            float player_bottom = player_boss->y + player_boss->side/2;
+            for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                if (bolas_fogo[i].ativa) {
+                    float bola_left   = bolas_fogo[i].x;
+                    float bola_right  = bolas_fogo[i].x + BOLA_FOGO_W;
+                    float bola_top    = bolas_fogo[i].y;
+                    float bola_bottom = bolas_fogo[i].y + BOLA_FOGO_H;
+                    if (bola_right > player_left && bola_left < player_right &&
+                        bola_bottom > player_top && bola_top < player_bottom) {
+                        vida_boss -= 4;
+                        bolas_fogo[i].ativa = 0;
+                    }
+                }
+            }
+            al_flip_display();
+            al_rest(0.01);
+        }
+        square_destroy(player_boss);
         }
     }
 
