@@ -1008,20 +1008,29 @@ int main() {
                         float bullet_bottom = bullets[i].y + BULLET_BOSS_H;
                         if (bullet_right > boss_left && bullet_left < boss_right &&
                             bullet_bottom > boss_top && bullet_top < boss_bottom) {
-                            boss_hit_counter++;
-                            bullets[i].ativa = 0;
-                            if (boss_hit_counter == 3) {
-                                boss_hit_counter = 0;
-                                if (boss.vida > 3) {
-                                    boss.vida--;
-                                    boss.estado = BOSS_DANO;
-                                    boss_dano_timer = 0;
-                                    boss_state_timer = 0;
+
+                            // Se NÃO está em BOSS_DANO, conte hits e aplique dano
+                            if (boss.estado != BOSS_DANO) {
+                                boss_hit_counter++;
+                                if (boss_hit_counter == 3) {
+                                    boss_hit_counter = 0;
+                                    if (boss.vida > 3) {
+                                        boss.vida--;
+                                        boss.estado = BOSS_DANO;
+                                        boss_dano_timer = 0;
+                                        boss_state_timer = 0;
+                                    }
                                 }
                             }
+                            // Se está em BOSS_DANO, não faz nada (ignora)
+                            bullets[i].ativa = 0; // sempre desativa o tiro
                         }
                     }
                 }
+            }
+            // Fora do loop: quando está em BOSS_DANO, zere o contador para não acumular
+            if (boss.estado == BOSS_DANO) {
+                boss_hit_counter = 0;
             }
 
             // --- BOLAS DE FOGO DO BOSS ---
