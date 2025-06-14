@@ -60,6 +60,15 @@ struct BolaFogo {
 
 struct BolaFogo bolas_fogo[MAX_BOLAS_FOGO] = {0};
 
+int get_boss_vida_sprite(struct Boss boss) { // <-- recebe boss como parâmetro
+    if (boss.vida <= 0) return 5; // 2ª sprite da 3ª linha (morto)
+    else if (boss.vida <= 3) return 4; // 2ª sprite da 2ª linha (quase morto)
+    else if (boss.vida <= 6) return 2; // 1ª sprite da 3ª linha (metade)
+    else if (boss.vida <= 12) return 3; // 2ª sprite da 1ª linha (menos da metade)
+    else if (boss.vida <= 18) return 1; // 1ª sprite da 2ª linha (pouco dano)
+    else return 0; // 1ª sprite da 1ª linha (vida cheia)
+}
+
 int main() {
     al_init();
     al_init_primitives_addon();
@@ -244,6 +253,37 @@ int main() {
     }
     int BOLA_FOGO_W = 77;
     int BOLA_FOGO_H = 78;
+
+    // Carrega a imagem das barras de vida do boss
+    ALLEGRO_BITMAP* boss_vida_sprite = al_load_bitmap("vidachefe.png"); // ou o nome do seu arquivo
+    if (!boss_vida_sprite) {
+        printf("Erro ao carregar sprite das barras de vida do boss!\n");
+    }
+    int BOSS_VIDA_W = 150; // 300 / 2
+    int BOSS_VIDA_H = 68;  // 204 / 3
+
+    ALLEGRO_BITMAP* boss_dano_sprite = al_load_bitmap("chefedano.png");
+    if (!boss_dano_sprite) {
+        printf("Erro ao carregar sprite de dano do boss!\n");
+    }
+    int BOSS_DANO_W = 129;
+    int BOSS_DANO_H = 105;
+    al_convert_mask_to_alpha(boss_dano_sprite, al_map_rgb(0,0,0));
+
+    ALLEGRO_BITMAP* boss_atacando_sprite = al_load_bitmap("chefeatacando.png");
+    ALLEGRO_BITMAP* boss_andando_sprite = al_load_bitmap("chefeandando.png");
+    ALLEGRO_BITMAP* boss_desfazendo_sprite = al_load_bitmap("chefedesfazendo.png");
+    ALLEGRO_BITMAP* boss_morto_sprite = al_load_bitmap("chefemorto.png");
+
+    // Tamanhos
+    al_convert_mask_to_alpha(boss_atacando_sprite, al_map_rgb(0,0,0));
+    int BOSS_ATACANDO_W = 160, BOSS_ATACANDO_H = 119;
+    al_convert_mask_to_alpha(boss_andando_sprite, al_map_rgb(0,0,0));
+    int BOSS_ANDANDO_W = 137, BOSS_ANDANDO_H = 113;
+    int BOSS_DESFAZENDO_W = 164, BOSS_DESFAZENDO_H = 105;
+    al_convert_mask_to_alpha(boss_desfazendo_sprite, al_map_rgb(0,0,0));
+    int BOSS_MORTO_W = 146, BOSS_MORTO_H = 64;
+    al_convert_mask_to_alpha(boss_morto_sprite, al_map_rgb(0,0,0));
 
     while (state != EXIT) {
         if (state == MENU) {
@@ -798,6 +838,7 @@ int main() {
             boss.cooldown_ataque = 0;
             boss.cooldown_escudo = 0;
             boss.frame_atual = 0;
+            int boss_hits = 0; // contador de balas que acertaram o boss
 
             while (boss_running) {
                 // Eventos
@@ -827,7 +868,7 @@ int main() {
                     no_chao = false;
                 }
 
-                // Gravidade e chão do player (VOLTE PARA COMO ESTAVA ANTES)
+                // Gravidade e chão do player
                 if (!no_chao) {
                     player_boss->y += vel_y;
                     vel_y += 1.5;
@@ -980,51 +1021,160 @@ int main() {
                     case 6: boss_sprite_row = 3; boss_sprite_col = 0; break; // morto
                 }
 
+                // POSIÇÃO FIXA - não muda baseado no estado
                 float boss_draw_y = boss.y - (BOSS_FRAME_H * 2);
-                if (boss.estado == 2) { // atacando
-                    boss_draw_y += 60; // ajuste este valor
+
+                switch (boss.estado) {
+                    case 2: // atacando
+                        al_draw_scaled_bitmap(boss_atacando_sprite, 0, 0, BOSS_ATACANDO_W, BOSS_ATACANDO_H,
+                                            boss.x, boss_draw_y + 70, BOSS_ATACANDO_W * 2, BOSS_ATACANDO_H * 2, 0);
+                        break;
+                    case 3: // andando
+                        al_draw_scaled_bitmap(boss_andando_sprite, 0, 0, BOSS_ANDANDO_W, BOSS_ANDANDO_H,
+                                            boss.x, boss_draw_y + 70, BOSS_ANDANDO_W * 2, BOSS_ANDANDO_H * 2, 0);
+                        break;
+                    case 4: // desfazendo
+                        al_draw_scaled_bitmap(boss_desfazendo_sprite, 0, 0, BOSS_DESFAZENDO_W, BOSS_DESFAZENDO_H,
+                                            boss.x, boss_draw_y + 70, BOSS_DESFAZENDO_W * 2, BOSS_DESFAZENDO_H * 2, 0);
+                        break;
+                    case 5: // dano
+                        al_draw_scaled_bitmap(boss_dano_sprite, 0, 0, BOSS_DANO_W, BOSS_DANO_H,
+                                            boss.x, boss_draw_y + 70, BOSS_DANO_W * 2, BOSS_DANO_H * 2, 0);
+                        break;
+                    case 6: // morto
+                        al_draw_scaled_bitmap(boss_morto_sprite, 0, 0, BOSS_MORTO_W, BOSS_MORTO_H,
+                                            boss.x, boss_draw_y + 90, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
+                        break;
+                    default: // escudo (0) e parado (1) - usa spritesheet original
+                        int boss_sprite_col = 0, boss_sprite_row = 0;
+                        if (boss.estado == 0) { boss_sprite_row = 0; boss_sprite_col = 0; } // escudo
+                        else { boss_sprite_row = 0; boss_sprite_col = 1; } // parado
+                        
+                        al_draw_scaled_bitmap(boss_sprite, boss_sprite_col * BOSS_FRAME_W, boss_sprite_row * BOSS_FRAME_H,
+                                            BOSS_FRAME_W, BOSS_FRAME_H, boss.x, boss_draw_y,
+                                            BOSS_FRAME_W * 2, BOSS_FRAME_H * 2, 0);
+                        break;
                 }
 
-                al_draw_scaled_bitmap(
-                    boss_sprite,
-                    boss_sprite_col * BOSS_FRAME_W, boss_sprite_row * BOSS_FRAME_H,
-                    BOSS_FRAME_W, BOSS_FRAME_H,
-                    boss.x,
-                    boss_draw_y, // ou simplesmente Y_SCREEN - 200
-                    BOSS_FRAME_W * 2,
-                    BOSS_FRAME_H * 2,
+                // Desenha a barra de vida do boss
+                int sprite_vida = get_boss_vida_sprite(boss);
+                int vida_col = sprite_vida % 2;
+                int vida_row = sprite_vida / 2;
+
+                al_draw_bitmap_region(
+                    boss_vida_sprite,
+                    vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H,
+                    BOSS_VIDA_W, BOSS_VIDA_H,
+                    X_SCREEN - BOSS_VIDA_W - 20, 20, // canto superior direito
                     0
                 );
 
-                
-                // Exemplo simples de alternância de estado
-                if (boss.cooldown_ataque > 0) boss.cooldown_ataque--;
-                if (boss.cooldown_escudo > 0) boss.cooldown_escudo--;
-
-                if (boss.cooldown_ataque == 0 && boss.estado != 2) {
-                    boss.estado = 2; // atacando
-                    boss.cooldown_ataque = 120; // 2 segundos
+                // Lógica de estados do boss
+                if (boss.vida > 0) {
+                    // Diminui os cooldowns
+                    if (boss.cooldown_ataque > 0) boss.cooldown_ataque--;
+                    if (boss.cooldown_escudo > 0) boss.cooldown_escudo--;
                     
-                    // Criar a bola de fogo
-                    for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
-                        if (!bolas_fogo[i].ativa) {
-                            bolas_fogo[i].ativa = 1;
-                            bolas_fogo[i].x = boss.x; // posição da mão do boss
-                            bolas_fogo[i].y = boss.y - 180; // ajuste para altura da mão
-                            bolas_fogo[i].vx = -8; // velocidade para a esquerda
-                            bolas_fogo[i].vy = 0;
-                            break;
+                    // Se não está tomando dano, segue o ciclo normal
+                    if (boss.estado != 5) { // não está no estado de dano
+                        
+                        // Ciclo: parado (2s) -> escudo (2s) -> atacando (2s) -> volta para parado
+                        if (boss.estado == 1) { // parado
+                            if (boss.cooldown_ataque == 0) {
+                                boss.estado = 0; // vai para escudo
+                                boss.cooldown_ataque = 120; // 2 segundos
+                            }
+                        }
+                        else if (boss.estado == 0) { // escudo
+                            if (boss.cooldown_ataque == 0) {
+                                boss.estado = 2; // vai para atacando
+                                boss.cooldown_ataque = 120; // 2 segundos
+                                
+                                // Criar bola de fogo quando começa a atacar
+                                for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                                    if (!bolas_fogo[i].ativa) {
+                                        bolas_fogo[i].ativa = 1;
+                                        bolas_fogo[i].x = boss.x;
+                                        bolas_fogo[i].y = boss.y - 150; // ajuste conforme necessário
+                                        bolas_fogo[i].vx = -8;
+                                        bolas_fogo[i].vy = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        else if (boss.estado == 2) { // atacando
+                            // Cria bola de fogo a cada 30 frames (0.5 segundos)
+                            static int contador_bolas = 0;
+                            contador_bolas++;
+                            
+                            if (contador_bolas >= 70) { // ajuste este valor para mudar a frequência
+                                contador_bolas = 0;
+                                
+                                // Criar bola de fogo
+                                for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                                    if (!bolas_fogo[i].ativa) {
+                                        bolas_fogo[i].ativa = 1;
+                                        bolas_fogo[i].x = boss.x;
+                                        bolas_fogo[i].y = boss.y - 150;
+                                        bolas_fogo[i].vx = -8;
+                                        bolas_fogo[i].vy = 0;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (boss.cooldown_ataque == 0) {
+                                boss.estado = 1; // volta para parado
+                                boss.cooldown_ataque = 120; // 2 segundos
+                            }
+                        }
+                        else if (boss.estado == 3) { // andando (após tomar dano)
+                        static int passos_dados = 0;
+                        static int cooldown_passo = 0;
+                        
+                        if (cooldown_passo > 0) {
+                            cooldown_passo--;
+                        } else if (passos_dados < 2) { // só 2 passos
+                            boss.x -= 50; // passo grande para a esquerda
+                            passos_dados++;
+                            cooldown_passo = 30; // pausa de meio segundo entre passos
+                        } else {
+                            passos_dados = 0;
+                            boss.estado = 1; // volta para parado
+                            boss.cooldown_ataque = 120;
+                        }
+                        
+                        // LIMITE: não deixa sair da tela pela esquerda
+                        if (boss.x < 0) {
+                            boss.x = 0;
                         }
                     }
-                } else if (boss.cooldown_ataque == 60) {
-                    boss.estado = 1; // parado
+
+                    }
+                    else { // estado de dano (5)
+                        if (boss.cooldown_ataque == 0) {
+                            boss.estado = 3; // vai para andando
+                            boss.cooldown_ataque = 120; // 2 segundos
+                        }
+                    }
+                    
+                    // Verifica se está quase morrendo (vida baixa)
+                    if (boss.vida <= 3 && boss.vida > 0) { //
+                        boss.estado = 4; // desfazendo
+                    }
                 }
 
-                if (boss.cooldown_escudo == 0 && boss.estado != 0) {
-                    boss.estado = 0; // escudo
-                    boss.cooldown_escudo = 180; // 3 segundos
-                } else if (boss.cooldown_escudo == 90) {
+                else { // boss morreu
+                    boss.estado = 6; // morto
+                }
+
+                // Inicialização: se é a primeira vez, começa parado
+                static int boss_iniciado = 0;
+                if (!boss_iniciado) {
                     boss.estado = 1; // parado
+                    boss.cooldown_ataque = 120; // 2 segundos
+                    boss_iniciado = 1;
                 }
 
                 // Atualiza e desenha as bolas de fogo
@@ -1041,6 +1191,58 @@ int main() {
                         }
                     }
                 }
+
+                // Colisão das bolas de fogo com o player
+                float player_left   = player_boss->x - SPRITE_W/2;
+                float player_right  = player_boss->x + SPRITE_W/2;
+                float player_top    = player_boss->y + player_boss->side/2 - SPRITE_H;
+                float player_bottom = player_boss->y + player_boss->side/2;
+
+                for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
+                    if (bolas_fogo[i].ativa) {
+                        float bola_left   = bolas_fogo[i].x;
+                        float bola_right  = bolas_fogo[i].x + BOLA_FOGO_W;
+                        float bola_top    = bolas_fogo[i].y;
+                        float bola_bottom = bolas_fogo[i].y + BOLA_FOGO_H;
+                        
+                        if (bola_right > player_left && bola_left < player_right &&
+                            bola_bottom > player_top && bola_top < player_bottom) {
+                            vida_boss -= 4; // perde 2 corações (4 pontos de vida)
+                            bolas_fogo[i].ativa = 0; // desativa a bola
+                        }
+                    }
+                }
+                
+                // 2. Logo depois: Colisão das balas do player com o boss
+                if (boss.estado != 0) { // não está com escudo
+                    float boss_left   = boss.x;
+                    float boss_right  = boss.x + (BOSS_FRAME_W * 2);
+                    float boss_top    = boss.y - (BOSS_FRAME_H * 2);
+                    float boss_bottom = boss.y;
+                    
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (bullets[i].ativa) {
+                            float bullet_left   = bullets[i].x - BULLET_BOSS_W/2;
+                            float bullet_right  = bullets[i].x + BULLET_BOSS_W/2;
+                            float bullet_top    = bullets[i].y;
+                            float bullet_bottom = bullets[i].y + BULLET_BOSS_H;
+                            
+                            if (bullet_right > boss_left && bullet_left < boss_right &&
+                                bullet_bottom > boss_top && bullet_top < boss_bottom) {
+                                boss_hits++; // incrementa contador de hits
+                                bullets[i].ativa = 0; // desativa a bala
+                                boss.estado = 5; // vai para estado de dano
+                                boss.cooldown_ataque = 120; // 2 segundos no estado de dano
+                                
+                                // A cada 7 hits, diminui a vida
+                                if (boss_hits % 7 == 0) {
+                                    boss.vida--;
+                                }
+                            }
+                        }
+                    }
+                }
+
 
                 al_flip_display();
                 al_rest(0.01);
@@ -1065,5 +1267,11 @@ int main() {
     al_destroy_bitmap(bg_boss);
     al_destroy_bitmap(boss_unlocked_img);
     al_destroy_bitmap(bullet_boss_img);
+    al_destroy_bitmap(boss_vida_sprite);
+    al_destroy_bitmap(boss_dano_sprite);
+    al_destroy_bitmap(boss_atacando_sprite);
+    al_destroy_bitmap(boss_andando_sprite);
+    al_destroy_bitmap(boss_desfazendo_sprite);
+    al_destroy_bitmap(boss_morto_sprite);
     return 0;
 }
