@@ -66,26 +66,23 @@ struct BolaFogo {
 };
 
 struct BolaFogo bolas_fogo[MAX_BOLAS_FOGO] = {0};
-
 int boss_bar_col(struct Boss boss) {
     if (boss.estado == BOSS_MORTO) return 1; // última coluna
     if (boss.estado == BOSS_DESFAZENDO) return 1;
-    if (boss.vida > 12) return 0;
-    if (boss.vida > 6) return 0;
-    if (boss.vida > 3) return 0;
-    if (boss.vida > 0) return 1;
+    if (boss.vida > 6) return 0; // cheia e um pouco de dano
+    if (boss.vida > 3) return 0; // metade
+    if (boss.vida > 0) return 1; // finzinho
     return 1;
 }
 int boss_bar_row(struct Boss boss) {
     if (boss.estado == BOSS_MORTO) return 2; // última linha
     if (boss.estado == BOSS_DESFAZENDO) return 1; // linha do finzinho
-    if (boss.vida > 12) return 0; // cheia
-    if (boss.vida > 6) return 1; // tomou um dano
-    if (boss.vida > 3) return 2; // metade
-    if (boss.vida > 0) return 1; // finzinho
-    return 2; // vazia
+    if (boss.vida > 8) return 0; // cheia (9-10)
+    if (boss.vida > 6) return 1; // tomou um pouco de dano (7-8)
+    if (boss.vida > 3) return 2; // metade (4-6)
+    if (boss.vida > 0) return 1; // finzinho (1-3)
+    return 2; // vazia (0)
 }
-
 void boss_lanca_bola_fogo(struct Boss *boss) {
     for (int i = 0; i < MAX_BOLAS_FOGO; i++) {
         if (!bolas_fogo[i].ativa) {
@@ -779,7 +776,7 @@ int main() {
             boss.x = X_SCREEN - 350;
             boss.y = Y_SCREEN - 10;
             boss.estado = BOSS_PARADO;
-            boss.vida = 20;
+            boss.vida = 10;
 
             int boss_state_timer = 0;
             int boss_dano_timer = 0;
@@ -1012,7 +1009,7 @@ int main() {
                             // Se NÃO está em BOSS_DANO, conte hits e aplique dano
                             if (boss.estado != BOSS_DANO) {
                                 boss_hit_counter++;
-                                if (boss_hit_counter == 3) {
+                                if (boss_hit_counter == 1) {
                                     boss_hit_counter = 0;
                                     if (boss.vida > 3) {
                                         boss.vida--;
