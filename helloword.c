@@ -889,7 +889,7 @@ int main() {
                 boss.vida = 3;
                 boss_desfazendo_timer--;
                 al_draw_scaled_bitmap(boss_desfazendo_sprite, 0, 0, BOSS_DESFAZENDO_W, BOSS_DESFAZENDO_H,
-                    boss.x, boss.y - BOSS_DESFAZENDO_H - 30, BOSS_DESFAZENDO_W * 2, BOSS_DESFAZENDO_H * 2, 0);
+                    boss.x, boss.y - BOSS_DESFAZENDO_H - 80, BOSS_DESFAZENDO_W * 2, BOSS_DESFAZENDO_H * 2, 0);
                 int vida_col = boss_bar_col(boss);
                 int vida_row = boss_bar_row(boss);
                 al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
@@ -904,7 +904,7 @@ int main() {
             }
             if (boss.estado == BOSS_MORTO) {
                 al_draw_scaled_bitmap(boss_morto_sprite, 0, 0, BOSS_MORTO_W, BOSS_MORTO_H,
-                    boss.x, boss.y - BOSS_MORTO_H - 30, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
+                    boss.x, boss.y - BOSS_MORTO_H - 80, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
                 int vida_col = boss_bar_col(boss);
                 int vida_row = boss_bar_row(boss);
                 al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
@@ -1010,7 +1010,7 @@ int main() {
                             bullet_bottom > boss_top && bullet_top < boss_bottom) {
                             boss_hit_counter++;
                             bullets[i].ativa = 0;
-                            if (boss_hit_counter == 7) {
+                            if (boss_hit_counter == 3) {
                                 boss_hit_counter = 0;
                                 if (boss.vida > 3) {
                                     boss.vida--;
