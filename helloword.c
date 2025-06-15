@@ -298,6 +298,9 @@ int main() {
 
     int vida = 20;
     bool rodada_fogos_acabou = false;
+    int stamina_max = 100;
+    int stamina = 100;
+    int stamina_recupera_tick = 0; // para controlar o tempo de recarga, se quiser
 
     ALLEGRO_BITMAP* bg_menu = al_load_bitmap("menu.png");
     if (!bg_menu) {
@@ -651,8 +654,11 @@ int main() {
                 static double last_shot_time = 0;
                 double now = al_get_time();
                 double shot_delay = 0.15;
-                if (key[ALLEGRO_KEY_Z] && now - last_shot_time > shot_delay) {
+                if (key[ALLEGRO_KEY_Z] && now - last_shot_time > shot_delay  && stamina >= 10) {
                     last_shot_time = now;
+                    stamina -= 10; // Consome estamina no ataque
+                    if(stamina < 0) stamina = 0;
+
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
@@ -827,6 +833,12 @@ int main() {
                         }
                     }
                 }
+
+                stamina_recupera_tick++;
+                if (stamina_recupera_tick > 5) { // a cada 6 iterações do loop, recupera 1 ponto de stamina
+                    stamina_recupera_tick = 0;
+                    if (stamina < stamina_max) stamina++;
+                }
                 char vida_str[32];
                 sprintf(vida_str, "Vida: %d", vida);
                 al_draw_text(font, al_map_rgb(255,0,0), 20, 20, 0, vida_str);
@@ -870,6 +882,13 @@ int main() {
                     jogando = false;
                 }
                 if (dano_fogo_cooldown > 0) dano_fogo_cooldown--;
+                // DESENHA BARRA DE ESTAMINA
+                int bar_w = 200;
+                int bar_h = 20;
+                float perc = (float)stamina / stamina_max;
+                al_draw_filled_rectangle(20, 60, 20 + bar_w * perc, 60 + bar_h, al_map_rgb(0,200,0));
+                al_draw_rectangle(20, 60, 20 + bar_w, 60 + bar_h, al_map_rgb(0,0,0), 2);
+
                 al_flip_display();
                 al_rest(0.01);
             }
@@ -913,7 +932,7 @@ int main() {
             int boss_andando_bola_timer = 0;
             int boss_hit_counter = 0;
 
-            
+            stamina = stamina_max;;
             // --- BOSS LOOP ---
            while (boss_running) {
             // --- CONTROLE DO PLAYER ---
@@ -1010,8 +1029,9 @@ int main() {
             static double last_shot_time_boss = 0;
             double now_boss = al_get_time();
             double shot_delay_boss = 0.15;
-            if (key[ALLEGRO_KEY_Z] && now_boss - last_shot_time_boss > shot_delay_boss) {
+            if (key[ALLEGRO_KEY_Z] && now_boss - last_shot_time_boss > shot_delay_boss  && stamina >= 10) {
                 last_shot_time_boss = now_boss;
+                stamina -= 10;
                 for (int i = 0; i < MAX_BULLETS; i++) {
                     if (!bullets[i].ativa) {
                         bullets[i].ativa = 1;
@@ -1041,6 +1061,12 @@ int main() {
                     bullets[i].y += bullets[i].vy;
                     al_draw_bitmap(bullet_boss_img, bullets[i].x - BULLET_BOSS_W/2, bullets[i].y, 0);
                 }
+            }
+
+            stamina_recupera_tick++;
+            if (stamina_recupera_tick > 5) { // a cada 6 iterações do loop, recupera 1 ponto de stamina
+                stamina_recupera_tick = 0;
+                if (stamina < stamina_max) stamina++;
             }
             // HUD do player
             int vida_max = 20, num_coracoes = vida_max / 2;
@@ -1240,6 +1266,13 @@ int main() {
                     }
                 }
             }
+
+            // DESENHA BARRA DE ESTAMINA
+            int bar_w = 200;
+            int bar_h = 20;
+            float perc = (float)stamina / stamina_max;
+            al_draw_filled_rectangle(20, 60, 20 + bar_w * perc, 60 + bar_h, al_map_rgb(0,200,0));
+            al_draw_rectangle(20, 60, 20 + bar_w, 60 + bar_h, al_map_rgb(0,0,0), 2);
             al_flip_display();
             al_rest(0.01);
         }
