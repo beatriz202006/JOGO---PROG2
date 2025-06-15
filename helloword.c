@@ -11,6 +11,7 @@
 #define MAX_BULLETS 2000
 #define NUM_FOGOS 6
 #define MAX_BOLAS_FOGO 50
+#define GAMEOVER_TIME 4.0f
 
 typedef enum { MENU, GAME, BOSS, EXIT } GameState;
 
@@ -96,6 +97,43 @@ void boss_lanca_bola_fogo(struct Boss *boss) {
     }
 }
 
+void tela_gameover(ALLEGRO_DISPLAY* disp, ALLEGRO_BITMAP* gameover_img) {
+    if (!gameover_img) {
+        al_clear_to_color(al_map_rgb(0, 0, 0));
+        al_draw_text(al_create_builtin_font(), al_map_rgb(255,0,0), X_SCREEN/2, Y_SCREEN/2, ALLEGRO_ALIGN_CENTRE, "GAME OVER");
+        al_flip_display();
+        al_rest(GAMEOVER_TIME);
+        return;
+    }
+    // Calcula a escala para encaixar a largura da tela
+    float escala = (float)X_SCREEN / 2048;
+    int w = X_SCREEN; // vai encaixar na largura total da tela
+    int h = 3072 * escala; // mantém a proporção original da imagem
+    int x = 0;
+    int y = (Y_SCREEN - h) / 2; // centraliza verticalmente (pode ficar negativo, cortando em cima/baixo)
+    al_draw_scaled_bitmap(gameover_img, 0, 0, 1800, 1800, x, y, w, h, 0);
+    al_flip_display();
+    al_rest(GAMEOVER_TIME);
+}
+
+void tela_vitoria(ALLEGRO_DISPLAY* disp, ALLEGRO_BITMAP* victory_img) {
+    if (!victory_img) {
+        al_clear_to_color(al_map_rgb(0, 0, 0));
+        al_draw_text(al_create_builtin_font(), al_map_rgb(0,255,0), X_SCREEN/2, Y_SCREEN/2, ALLEGRO_ALIGN_CENTRE, "VOCÊ VENCEU!");
+        al_flip_display();
+        al_rest(GAMEOVER_TIME);
+        return;
+    }
+    // Preencher largura total (ajuste igual ao anterior)
+    float escala = (float)X_SCREEN / 2048;
+    int w = X_SCREEN;
+    int h = 3072 * escala;
+    int x = 0;
+    int y = (Y_SCREEN - h) / 2;
+    al_draw_scaled_bitmap(victory_img, 0, 0, 1800, 1800, x, y, w, h, 0);
+    al_flip_display();
+    al_rest(GAMEOVER_TIME);
+}
 int main() {
     al_init();
     al_init_primitives_addon();
@@ -241,6 +279,18 @@ int main() {
     }
 
     int dano_fogo_cooldown = 0;
+
+    ALLEGRO_BITMAP* gameover_img = al_load_bitmap("gameoverlose.png");
+    if (!gameover_img) {
+        printf("Erro ao carregar imagem de Game Over!\n");
+    }
+
+    ALLEGRO_BITMAP* victory_img = al_load_bitmap("gameoverwin.png"); // ou "win.png", etc
+    if (!victory_img) {
+        printf("Erro ao carregar imagem de Vitória!\n");
+    }
+        double tempo_gameover = 0;
+    int gameover_rodando = 0;
 
     ALLEGRO_BITMAP* bg_boss = al_load_bitmap("backgroundchefefull2.png");
     if (!bg_boss) {
@@ -727,8 +777,11 @@ int main() {
                     );
                 }
                 if (vida <= 0) {
+                    tela_gameover(disp, gameover_img);
                     jogando = false;
+                    state = MENU; // já volta para o menu depois
                 }
+
                 bool todos_derrotados = true;
                 for (int f = 0; f < NUM_FOGOS; f++) {
                     if (fogos_vida[f] > 0 || !fogo_morto_por_tiro[f]) todos_derrotados = false;
@@ -880,6 +933,13 @@ int main() {
                     20 + i * (CORACAO_W + 5), 20, 0);
             }
 
+            if (vida_boss <= 0) {
+                tela_gameover(disp, gameover_img);
+                boss_running = false;
+                state = MENU;
+                continue;
+            }
+
             // --------- LÓGICA DO BOSS ---------
             // --- BLOQUEIO ABSOLUTO DO DESFAZENDO/MORTO ---
             if (boss.estado == BOSS_DESFAZENDO) {
@@ -900,18 +960,22 @@ int main() {
                 continue;
             }
             if (boss.estado == BOSS_MORTO) {
-                al_draw_scaled_bitmap(boss_morto_sprite, 0, 0, BOSS_MORTO_W, BOSS_MORTO_H,
-                    boss.x, boss.y - BOSS_MORTO_H - 80, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
-                int vida_col = boss_bar_col(boss);
-                int vida_row = boss_bar_row(boss);
-                al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
-                    X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
-                al_flip_display();
-                al_rest(2.0);
-                boss_running = false;
-                state = MENU;
-                continue;
-            }
+            al_draw_scaled_bitmap(boss_morto_sprite, 0, 0, BOSS_MORTO_W, BOSS_MORTO_H,
+                boss.x, boss.y - BOSS_MORTO_H - 80, BOSS_MORTO_W * 2, BOSS_MORTO_H * 2, 0);
+            int vida_col = boss_bar_col(boss);
+            int vida_row = boss_bar_row(boss);
+            al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
+                X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
+            al_flip_display();
+            al_rest(2.0);
+
+            // Tela de vitória
+            tela_vitoria(disp, victory_img);
+
+            boss_running = false;
+            state = MENU;
+            continue;
+        }
 
             // --- TRANSIÇÃO PARA DESFAZENDO ---
             if (boss.vida <= 3 && boss.estado != BOSS_DESFAZENDO && boss.estado != BOSS_MORTO) {
@@ -1087,5 +1151,7 @@ int main() {
     al_destroy_bitmap(boss_andando_sprite);
     al_destroy_bitmap(boss_desfazendo_sprite);
     al_destroy_bitmap(boss_morto_sprite);
+    al_destroy_bitmap(gameover_img);
+    al_destroy_bitmap(victory_img);
     return 0;
 }
