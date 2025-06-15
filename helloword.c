@@ -553,12 +553,43 @@ int main() {
                 if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
                     key[event.keyboard.keycode] = true;
                     if (event.keyboard.keycode == ALLEGRO_KEY_P) {
-                        state_anterior = state;
-                        state = PAUSE;
-                        jogando = false;
-                        break;
+                        // PAUSE IN-GAME
+                        tela_pausa(disp, pause_img);
+
+                        // Limpa eventos antigos
+                        ALLEGRO_EVENT temp_event;
+                        while (al_get_next_event(queue, &temp_event)) {}
+
+                        // Espera soltar P
+                        bool esperando_soltar = true;
+                        while (esperando_soltar) {
+                            al_wait_for_event(queue, &temp_event);
+                            if (temp_event.type == ALLEGRO_EVENT_KEY_UP && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                                esperando_soltar = false;
+                            if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                                jogando = false;
+                                state = EXIT;
+                                return 0;
+                            }
+                        }
+
+                        // Espera apertar P de novo
+                        bool esperando = true;
+                        while (esperando) {
+                            al_wait_for_event(queue, &temp_event);
+                            if (temp_event.type == ALLEGRO_EVENT_KEY_DOWN && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                                esperando = false;
+                            if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                                esperando = false;
+                                jogando = false;
+                                state = EXIT;
+                                return 0;
+                            }
+                        }
+                        // Ao sair, apenas continua o loop do jogo normalmente!
                     }
                 }
+
                 if (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]) {
                     int up_col = (direcao == 0) ? 1 : 0;
                     al_draw_bitmap_region(
@@ -913,12 +944,43 @@ int main() {
             if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
                 key[event.keyboard.keycode] = true;
                 if (event.keyboard.keycode == ALLEGRO_KEY_P) {
-                    state_anterior = state;
-                    state = PAUSE;
-                    boss_running = false;
-                    break;
+                    // PAUSE IN-BOSS
+                    tela_pausa(disp, pause_img);
+
+                    // Limpa eventos antigos
+                    ALLEGRO_EVENT temp_event;
+                    while (al_get_next_event(queue, &temp_event)) {}
+
+                    // Espera soltar P
+                    bool esperando_soltar = true;
+                    while (esperando_soltar) {
+                        al_wait_for_event(queue, &temp_event);
+                        if (temp_event.type == ALLEGRO_EVENT_KEY_UP && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                            esperando_soltar = false;
+                        if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                            boss_running = false;
+                            state = EXIT;
+                            return 0;
+                        }
+                    }
+
+                    // Espera apertar P de novo
+                    bool esperando = true;
+                    while (esperando) {
+                        al_wait_for_event(queue, &temp_event);
+                        if (temp_event.type == ALLEGRO_EVENT_KEY_DOWN && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                            esperando = false;
+                        if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                            esperando = false;
+                            boss_running = false;
+                            state = EXIT;
+                            return 0;
+                        }
+                    }
+                    // Ao sair, apenas continua o loop do boss normalmente!
                 }
             }
+
             al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, -100, X_SCREEN, Y_SCREEN + 100, 0);
 
             // --- DESENHO DO PLAYER ---
@@ -1185,39 +1247,6 @@ int main() {
         continue;
         }
 
-        if (state == PAUSE) {
-            tela_pausa(disp, pause_img);
-            
-            // Limpa eventos antigos
-            ALLEGRO_EVENT temp_event;
-            while (al_get_next_event(queue, &temp_event)) {}
-
-            // Espera soltar P
-            bool esperando_soltar = true;
-            while (esperando_soltar) {
-                al_wait_for_event(queue, &temp_event);
-                if (temp_event.type == ALLEGRO_EVENT_KEY_UP && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
-                    esperando_soltar = false;
-                if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
-                    state = EXIT;
-                    esperando_soltar = false;
-                }
-            }
-
-            // Espera apertar P de novo
-            bool esperando = true;
-            while (esperando) {
-                al_wait_for_event(queue, &temp_event);
-                if (temp_event.type == ALLEGRO_EVENT_KEY_DOWN && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
-                    esperando = false;
-                if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
-                    esperando = false;
-                    state = EXIT;
-                }
-            }
-            state = state_anterior;
-            continue;
-        }
     }
     
 
