@@ -13,7 +13,7 @@
 #define MAX_BOLAS_FOGO 50
 #define GAMEOVER_TIME 4.0f
 
-typedef enum { MENU, GAME, BOSS, EXIT, PAUSE } GameState;
+typedef enum { MENU, GAME, BOSS, FASE3, EXIT, PAUSE } GameState;
 
 struct Bullet {
     float x, y;
@@ -381,6 +381,11 @@ int main() {
     al_convert_mask_to_alpha(boss_desfazendo_sprite, al_map_rgb(0,0,0));
     int BOSS_MORTO_W = 146, BOSS_MORTO_H = 64;
     al_convert_mask_to_alpha(boss_morto_sprite, al_map_rgb(0,0,0));
+
+    ALLEGRO_BITMAP* bg_night = al_load_bitmap("backgroundfase3full.png");
+    if (!bg_night) {
+        printf("Erro ao carregar background da fase noturna!\n");
+    }
 
     while (state != EXIT) {
         // MENU
@@ -1154,7 +1159,7 @@ int main() {
                 tela_vitoria(disp, victory_img);
 
                 boss_running = false;
-                state = MENU;
+                state = FASE3;
                 continue;
             }
 
@@ -1329,10 +1334,81 @@ int main() {
             al_flip_display();
             al_rest(0.01);
         }
-        square_destroy(player_boss);
-        continue;
+            square_destroy(player_boss);
+            continue;
         }
+        // ----- FASE 3 -----
+        if (state == FASE3) {
+            // Inicialização da fase 3
+            int vida_fase3 = 20; // Exemplo de vida do novo chefe
+            bool fase3_running = true;
+            bool key[ALLEGRO_KEY_MAX] = {false};
+            int stamina_fase3 = stamina_max;
+            int stamina_recupera_tick_fase3 = 0;
+            int stamina_fadiga_tick_fase3 = 0;
+            bool cansado_fase3 = false;
 
+            // Exemplo de criação do player (ajuste conforme sua estrutura)
+            square* player_fase3 = square_create(50, X_SCREEN/2, Y_SCREEN-200, X_SCREEN, Y_SCREEN);
+            // Carregue sprites do chefe 2, inimigos, etc, aqui em cima se quiser
+
+            while (fase3_running) {
+                // Eventos
+                ALLEGRO_EVENT event;
+                if (al_get_next_event(queue, &event)) {
+                    if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                        fase3_running = false;
+                        state = EXIT;
+                    } else if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
+                        key[event.keyboard.keycode] = true;
+                    } else if (event.type == ALLEGRO_EVENT_KEY_UP) {
+                        key[event.keyboard.keycode] = false;
+                    }
+                }
+
+                // --- Desenha o background noturno ---
+                al_draw_scaled_bitmap(
+                    bg_night, 0, 0, 2048, 1536,
+                    0, 0, X_SCREEN, Y_SCREEN, 0
+                );
+
+                // --- Aqui vai a lógica do chefe 2 e outros inimigos da fase 3 ---
+                // Exemplo: player parado só para mostrar o fundo
+                al_draw_filled_circle(X_SCREEN/2, Y_SCREEN-100, 40, al_map_rgb(255,255,255)); // só uma bola simbolizando o player
+
+                // --- HUD (exemplo de barra de vida do chefe 2) ---
+                char vida_str[32];
+                sprintf(vida_str, "Vida Chefe 2: %d", vida_fase3);
+                al_draw_text(font, al_map_rgb(128,128,255), 20, 20, 0, vida_str);
+
+                // --- Barra de stamina (exemplo) ---
+                int bar_w = 200, bar_h = 20;
+                float perc = (float)stamina_fase3 / stamina_max;
+                al_draw_filled_rectangle(20, 60, 20 + bar_w * perc, 60 + bar_h, al_map_rgb(0,200,0));
+                al_draw_rectangle(20, 60, 20 + bar_w, 60 + bar_h, al_map_rgb(0,0,0), 2);
+
+                // --- Controles de sair ou pausar ---
+                if (key[ALLEGRO_KEY_ESCAPE]) {
+                    fase3_running = false;
+                    state = MENU;
+                }
+
+                // --- Lógica de vitória da fase 3 ---
+                // Quando o chefe morrer, mostre tela de vitória e volte ao menu
+                if (vida_fase3 <= 0) {
+                    tela_vitoria(disp, victory_img);
+                    fase3_running = false;
+                    state = MENU; // ou EXIT se quiser fechar
+                    continue;
+                }
+
+                al_flip_display();
+                al_rest(0.01);
+            }
+            // Limpeza se necessário
+            square_destroy(player_fase3);
+            continue;
+        }
     }
     
 
