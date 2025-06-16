@@ -1208,7 +1208,7 @@ int main() {
                     boss_state_timer = 0;
                 }
             } else if (boss.estado == BOSS_DANO) {
-                if (boss_dano_timer == 0) boss_dano_timer = 120;
+                if (boss_dano_timer == 0) boss_dano_timer = 240;
                 boss_dano_timer--;
                 if (boss_dano_timer <= 0) {
                     boss.estado = BOSS_ESCUDO;
@@ -1338,19 +1338,20 @@ int main() {
             continue;
         }
         // ----- FASE 3 -----
+        // ----- FASE 3 -----
         if (state == FASE3) {
             // Inicialização da fase 3
-            int vida_fase3 = 20; // Exemplo de vida do novo chefe
+            int vida_fase3 = 20; // vida do chefe 2 (ajuste conforme seu chefe)
             bool fase3_running = true;
             bool key[ALLEGRO_KEY_MAX] = {false};
-            int stamina_fase3 = stamina_max;
-            int stamina_recupera_tick_fase3 = 0;
-            int stamina_fadiga_tick_fase3 = 0;
-            bool cansado_fase3 = false;
+            int vida_player_fase3 = 20;
 
-            // Exemplo de criação do player (ajuste conforme sua estrutura)
-            square* player_fase3 = square_create(50, X_SCREEN/2, Y_SCREEN-200, X_SCREEN, Y_SCREEN);
-            // Carregue sprites do chefe 2, inimigos, etc, aqui em cima se quiser
+            // Player na posição inicial
+            square* player_fase3 = square_create(50, 50, Y_SCREEN-40, X_SCREEN, Y_SCREEN);
+            float vel_y_fase3 = 0;
+            bool no_chao_fase3 = false;
+            int direcao_fase3 = 0;
+            int altura_colisao_fase3 = SPRITE_H;
 
             while (fase3_running) {
                 // Eventos
@@ -1367,45 +1368,115 @@ int main() {
                 }
 
                 // --- Desenha o background noturno ---
-                al_draw_scaled_bitmap(
-                    bg_night, 0, 0, 2048, 1536,
-                    0, 0, X_SCREEN, Y_SCREEN, 0
-                );
+                al_draw_scaled_bitmap(bg_night, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN, 0);
 
-                // --- Aqui vai a lógica do chefe 2 e outros inimigos da fase 3 ---
-                // Exemplo: player parado só para mostrar o fundo
-                al_draw_filled_circle(X_SCREEN/2, Y_SCREEN-100, 40, al_map_rgb(255,255,255)); // só uma bola simbolizando o player
+                // --- MOVIMENTO DO PLAYER (igual outras fases) ---
+                if (key[ALLEGRO_KEY_LEFT]) { square_move(player_fase3, 1, 0, X_SCREEN, Y_SCREEN); direcao_fase3 = 1; }
+                if (key[ALLEGRO_KEY_RIGHT]) { square_move(player_fase3, 1, 1, X_SCREEN, Y_SCREEN); direcao_fase3 = 0; }
+                if ((key[ALLEGRO_KEY_SPACE] || key[ALLEGRO_KEY_UP]) && no_chao_fase3) { vel_y_fase3 = -20; no_chao_fase3 = false; }
+                if (!no_chao_fase3) {
+                    player_fase3->y += vel_y_fase3;
+                    vel_y_fase3 += 1.5;
+                    if (player_fase3->y + player_fase3->side/2 >= Y_SCREEN - 90) {
+                        player_fase3->y = Y_SCREEN - 90 - player_fase3->side/2;
+                        vel_y_fase3 = 0; no_chao_fase3 = true;
+                    }
+                }
 
-                // --- HUD (exemplo de barra de vida do chefe 2) ---
-                char vida_str[32];
-                sprintf(vida_str, "Vida Chefe 2: %d", vida_fase3);
-                al_draw_text(font, al_map_rgb(128,128,255), 20, 20, 0, vida_str);
+                // --- SPRITE DO PLAYER (igual outras fases) ---
+                int sprite_row = 0, sprite_col = 0;
+                if (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]) {
+                    int up_col = (direcao_fase3 == 0) ? 1 : 0;
+                    al_draw_bitmap_region(sprite_up, up_col * SPRITE_UP_W, 0, SPRITE_UP_W, SPRITE_UP_H,
+                        player_fase3->x - SPRITE_UP_W/2,
+                        player_fase3->y + player_fase3->side/2 - SPRITE_UP_H, 0);
+                } else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao_fase3) {
+                    altura_colisao_fase3 = SPRITE_H * 0.5;
+                    int down_col = (direcao_fase3 == 0) ? 1 : 0;
+                    al_draw_bitmap_region(sprite_down, down_col * SPRITE_DOWN_W, 0, SPRITE_DOWN_W, SPRITE_DOWN_H,
+                        player_fase3->x - SPRITE_DOWN_W/2,
+                        player_fase3->y + player_fase3->side/2 - SPRITE_DOWN_H, 0);
+                } else {
+                    if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) { altura_colisao_fase3 = SPRITE_H * 0.5; sprite_row = 1; sprite_col = (direcao_fase3 == 0) ? 0 : 3; }
+                    else if (key[ALLEGRO_KEY_Z]) { sprite_row = 2; sprite_col = (direcao_fase3 == 0) ? 1 : 2; }
+                    else if (!no_chao_fase3) { sprite_row = 0; sprite_col = (direcao_fase3 == 0) ? 1 : 2; }
+                    else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao_fase3) { sprite_row = 1; sprite_col = (direcao_fase3 == 0) ? 1 : 2; }
+                    else if (no_chao_fase3) { sprite_row = 0; sprite_col = (direcao_fase3 == 0) ? 0 : 3; }
+                    al_draw_bitmap_region(sprite_sheet, sprite_col * SPRITE_W, sprite_row * SPRITE_H, SPRITE_W, SPRITE_H,
+                        player_fase3->x - SPRITE_W/2,
+                        player_fase3->y + player_fase3->side/2 - SPRITE_H, 0);
+                }
 
-                // --- Barra de stamina (exemplo) ---
-                int bar_w = 200, bar_h = 20;
-                float perc = (float)stamina_fase3 / stamina_max;
-                al_draw_filled_rectangle(20, 60, 20 + bar_w * perc, 60 + bar_h, al_map_rgb(0,200,0));
-                al_draw_rectangle(20, 60, 20 + bar_w, 60 + bar_h, al_map_rgb(0,0,0), 2);
+                static double last_shot_time_fase3 = 0;
+                double now_fase3 = al_get_time();
+                double shot_delay_fase3 = 0.15; // igual chefão
 
-                // --- Controles de sair ou pausar ---
+                // Disparo do projetil (igual chefão)
+                if (key[ALLEGRO_KEY_Z] && now_fase3 - last_shot_time_fase3 > shot_delay_fase3) {
+                    last_shot_time_fase3 = now_fase3;
+
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (!bullets[i].ativa) {
+                            bullets[i].ativa = 1;
+                            // Para cima
+                            if (key[ALLEGRO_KEY_UP]) {
+                                bullets[i].x = player_fase3->x + 10;
+                                bullets[i].y = player_fase3->y + player_fase3->side/2 - SPRITE_UP_H;
+                                bullets[i].vx = 0;
+                                bullets[i].vy = -15;
+                            }
+                            // Para baixo
+                            else if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) {
+                                if (direcao_fase3 == 0) bullets[i].x = player_fase3->x + SPRITE_DOWN_W/2;
+                                else bullets[i].x = player_fase3->x - SPRITE_DOWN_W/2;
+                                bullets[i].y = player_fase3->y + player_fase3->side/2 - SPRITE_DOWN_H/2 + 40;
+                                bullets[i].vx = (direcao_fase3 == 0) ? 15 : -15;
+                                bullets[i].vy = 0;
+                            }
+                            // Para frente
+                            else {
+                                if (direcao_fase3 == 0) bullets[i].x = player_fase3->x + SPRITE_W/2;
+                                else bullets[i].x = player_fase3->x - SPRITE_W/2;
+                                bullets[i].y = player_fase3->y + player_fase3->side/2 - SPRITE_H + 20;
+                                bullets[i].vx = (direcao_fase3 == 0) ? 15 : -15;
+                                bullets[i].vy = 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < MAX_BULLETS; i++) {
+                    if (bullets[i].ativa) {
+                        bullets[i].x += bullets[i].vx;
+                        bullets[i].y += bullets[i].vy;
+                        al_draw_bitmap(bullet_boss_img, bullets[i].x - BULLET_BOSS_W/2, bullets[i].y, 0);
+
+                        // Desativa se sair da tela
+                        if (bullets[i].x < -BULLET_BOSS_W || bullets[i].x > X_SCREEN + BULLET_BOSS_W ||
+                            bullets[i].y < -BULLET_BOSS_H || bullets[i].y > Y_SCREEN + BULLET_BOSS_H) {
+                            bullets[i].ativa = 0;
+                        }
+                    }
+                }
+                // --- CONTROLE DE PAUSA/SAIR ---
                 if (key[ALLEGRO_KEY_ESCAPE]) {
                     fase3_running = false;
                     state = MENU;
                 }
 
-                // --- Lógica de vitória da fase 3 ---
-                // Quando o chefe morrer, mostre tela de vitória e volte ao menu
-                if (vida_fase3 <= 0) {
-                    tela_vitoria(disp, victory_img);
-                    fase3_running = false;
-                    state = MENU; // ou EXIT se quiser fechar
-                    continue;
-                }
+                // --- HUD (exemplo de barra de vida do chefe 2 e do player) ---
+                char vida_str[32];
+                sprintf(vida_str, "Vida Chefe 2: %d", vida_fase3);
+                al_draw_text(font, al_map_rgb(128,128,255), 20, 20, 0, vida_str);
+
+                char vida_player_str[32];
+                sprintf(vida_player_str, "Vida: %d", vida_player_fase3);
+                al_draw_text(font, al_map_rgb(255,0,0), 20, 50, 0, vida_player_str);
 
                 al_flip_display();
                 al_rest(0.01);
             }
-            // Limpeza se necessário
             square_destroy(player_fase3);
             continue;
         }
