@@ -219,6 +219,18 @@ int main() {
     int SPRITE_DOWN_W = 182;
     int SPRITE_DOWN_H = 164;
 
+    ALLEGRO_BITMAP* sprite_down2 = al_load_bitmap("spriteaguaabaixadofull.png");
+    if (!sprite_down2) {
+        printf("Erro ao carregar sprite atirando abaixado!\n");
+        al_destroy_bitmap(sprite_down);
+        al_destroy_bitmap(sprite_sheet);
+        al_destroy_bitmap(bg);
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
+    
     ALLEGRO_BITMAP* sprite_up = al_load_bitmap("spriteatirandocimafull.png");
     if (!sprite_up) {
         printf("Erro ao carregar sprite atirando para cima!\n");
