@@ -12,6 +12,14 @@
 #define NUM_FOGOS 6
 #define MAX_BOLAS_FOGO 50
 #define GAMEOVER_TIME 4.0f
+#define DRAGON_IDLE_W 200
+#define DRAGON_IDLE_H 300
+#define DRAGON_ATTACK_W 200
+#define DRAGON_ATTACK_H 144
+#define DRAGON_ALMOST_DEAD_W 200
+#define DRAGON_ALMOST_DEAD_H 184
+#define DRAGON_DEAD_W 200
+#define DRAGON_DEAD_H 156
 
 typedef enum { MENU, GAME, BOSS, FASE3, EXIT, PAUSE } GameState;
 
@@ -1477,6 +1485,24 @@ int main() {
                     }
                 }
 
+                // Recuperação da estamina
+                if (!cansado_fase3) {
+                    if (stamina_fase3 < stamina_max) {
+                        stamina_recupera_tick_fase3++;
+                        if (stamina_recupera_tick_fase3 >= 6) { // a cada 6 frames recupera 1 ponto
+                            stamina_fase3 += 1;
+                            if (stamina_fase3 > stamina_max) stamina_fase3 = stamina_max;
+                            stamina_recupera_tick_fase3 = 0;
+                        }
+                    }
+                } else {
+                    // Está cansado, espera um tempo antes de voltar a recarregar
+                    stamina_fadiga_tick_fase3++;
+                    if (stamina_fadiga_tick_fase3 >= 60) { // espera 1 segundo "cansado"
+                        cansado_fase3 = false;
+                        stamina_fadiga_tick_fase3 = 0;
+                    }
+                }
                 // --- Atualiza/desenha projéteis ---
                 for (int i = 0; i < MAX_BULLETS; i++) {
                     if (bullets[i].ativa) {
@@ -1582,19 +1608,33 @@ int main() {
                     }
                 }
 
-                // --- DESENHA O CHEFÃO (escolhe sprite pelo estado, centraliza na base do chão) ---
+                // Multiplicador de escala (2x maior)
+                float dragon_scale = 2.0f;
+
+                // Posição base do dragão
+                int boss3_x = X_SCREEN - DRAGON_IDLE_W * dragon_scale - 40; // canto direito, ajuste se quiser
+                int boss3_base_y = Y_SCREEN - (DRAGON_IDLE_H * dragon_scale) - 90; // mais pra cima (aumente o -90 pra subir mais)
+
+                // No loop, desenhe cada sprite assim:
                 if (boss3_state == BOSS3_IDLE) {
-                    // Parado (vulnerável)
-                    if (dragon_idle) al_draw_bitmap(dragon_idle, boss3_x, boss3_y, 0);
+                    if (dragon_idle) al_draw_scaled_bitmap(
+                        dragon_idle, 0, 0, DRAGON_IDLE_W, DRAGON_IDLE_H,
+                        boss3_x, boss3_base_y, DRAGON_IDLE_W * dragon_scale, DRAGON_IDLE_H * dragon_scale, 0);
                 } else if (boss3_state == BOSS3_ATTACK) {
-                    // Atacando
-                    if (dragon_attack) al_draw_bitmap(dragon_attack, boss3_x, boss3_y + (300-144), 0); // Alinha base
+                    if (dragon_attack) al_draw_scaled_bitmap(
+                        dragon_attack, 0, 0, DRAGON_ATTACK_W, DRAGON_ATTACK_H,
+                        boss3_x, boss3_base_y + (DRAGON_IDLE_H - DRAGON_ATTACK_H) * dragon_scale,  // ajusta a base
+                        DRAGON_ATTACK_W * dragon_scale, DRAGON_ATTACK_H * dragon_scale, 0);
                 } else if (boss3_state == BOSS3_ALMOST_DEAD) {
-                    // Quase morto
-                    if (dragon_almost_dead) al_draw_bitmap(dragon_almost_dead, boss3_x, boss3_y + (300-184), 0);
+                    if (dragon_almost_dead) al_draw_scaled_bitmap(
+                        dragon_almost_dead, 0, 0, DRAGON_ALMOST_DEAD_W, DRAGON_ALMOST_DEAD_H,
+                        boss3_x, boss3_base_y + (DRAGON_IDLE_H - DRAGON_ALMOST_DEAD_H) * dragon_scale,
+                        DRAGON_ALMOST_DEAD_W * dragon_scale, DRAGON_ALMOST_DEAD_H * dragon_scale, 0);
                 } else if (boss3_state == BOSS3_DEAD) {
-                    // Morto
-                    if (dragon_dead) al_draw_bitmap(dragon_dead, boss3_x, boss3_y + (300-156), 0);
+                    if (dragon_dead) al_draw_scaled_bitmap(
+                        dragon_dead, 0, 0, DRAGON_DEAD_W, DRAGON_DEAD_H,
+                        boss3_x, boss3_base_y + (DRAGON_IDLE_H - DRAGON_DEAD_H) * dragon_scale,
+                        DRAGON_DEAD_W * dragon_scale, DRAGON_DEAD_H * dragon_scale, 0);
                 }
 
                 // --- CONTROLE DE PAUSA/SAIR ---
