@@ -387,6 +387,21 @@ int main() {
         printf("Erro ao carregar background da fase noturna!\n");
     }
 
+    // Chefão Fase 3
+    ALLEGRO_BITMAP* dragon_idle = al_load_bitmap("dragaoparado.png"); // 200x300
+    ALLEGRO_BITMAP* dragon_attack = al_load_bitmap("dragaofogo2.png"); // 200x144
+    ALLEGRO_BITMAP* dragon_almost_dead = al_load_bitmap("dragaoquasemorto.png"); // 200x184
+    ALLEGRO_BITMAP* dragon_dead = al_load_bitmap("dragaomorto.png"); // 200x156
+
+    if (!dragon_idle || !dragon_attack || !dragon_almost_dead || !dragon_dead) {
+        printf("Erro ao carregar sprites do chefão da fase 3!\n");
+    }
+    
+    al_convert_mask_to_alpha(dragon_idle, al_map_rgb(0,0,0));
+    al_convert_mask_to_alpha(dragon_attack, al_map_rgb(0,0,0));
+    al_convert_mask_to_alpha(dragon_almost_dead, al_map_rgb(0,0,0));
+    al_convert_mask_to_alpha(dragon_dead, al_map_rgb(0,0,0));
+    
     while (state != EXIT) {
         // MENU
         if (state == MENU) {
@@ -1337,24 +1352,37 @@ int main() {
             square_destroy(player_boss);
             continue;
         }
-        // ----- FASE 3 -----
-        // ----- FASE 3 -----
+
         if (state == FASE3) {
-            // Inicialização da fase 3
-            int vida_fase3 = 20; // vida do chefe 2 (ajuste conforme seu chefe)
+            // --- Variáveis do chefe ---
+            int vida_boss3 = 10; // Pode ajustar valor máximo aqui
+            int vida_player_fase3 = 20;
             bool fase3_running = true;
             bool key[ALLEGRO_KEY_MAX] = {false};
-            int vida_player_fase3 = 20;
+            int stamina_fase3 = stamina_max;
+            int stamina_recupera_tick_fase3 = 0;
+            int stamina_fadiga_tick_fase3 = 0;
+            bool cansado_fase3 = false;
 
-            // Player na posição inicial
+            // Player na posição inicial (canto esquerdo, perto do chão)
             square* player_fase3 = square_create(50, 50, Y_SCREEN-40, X_SCREEN, Y_SCREEN);
             float vel_y_fase3 = 0;
             bool no_chao_fase3 = false;
             int direcao_fase3 = 0;
-            int altura_colisao_fase3 = SPRITE_H;
 
+            // --- Variáveis do dragão ---
+            enum Boss3State { BOSS3_IDLE, BOSS3_ATTACK, BOSS3_ALMOST_DEAD, BOSS3_DEAD };
+            int boss3_state = BOSS3_IDLE;
+            int boss3_timer = 0;
+            int boss3_x = X_SCREEN-320; // canto direito
+            int boss3_y = Y_SCREEN-300; // ajusta pra base do chão
+            int boss3_w = 200;
+            int boss3_h = 300; // altura máxima, ajusta para centralizar sprites menores
+            bool boss3_quase_morto = false;
+
+            // --- Loop principal da fase 3 ---
             while (fase3_running) {
-                // Eventos
+                // --- Eventos ---
                 ALLEGRO_EVENT event;
                 if (al_get_next_event(queue, &event)) {
                     if (event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
@@ -1367,7 +1395,7 @@ int main() {
                     }
                 }
 
-                // --- Desenha o background noturno ---
+                // --- Desenha o background ---
                 al_draw_scaled_bitmap(bg_night, 0, 0, 2048, 1536, 0, 0, X_SCREEN, Y_SCREEN, 0);
 
                 // --- MOVIMENTO DO PLAYER (igual outras fases) ---
@@ -1391,13 +1419,12 @@ int main() {
                         player_fase3->x - SPRITE_UP_W/2,
                         player_fase3->y + player_fase3->side/2 - SPRITE_UP_H, 0);
                 } else if (key[ALLEGRO_KEY_DOWN] && key[ALLEGRO_KEY_Z] && no_chao_fase3) {
-                    altura_colisao_fase3 = SPRITE_H * 0.5;
                     int down_col = (direcao_fase3 == 0) ? 1 : 0;
                     al_draw_bitmap_region(sprite_down, down_col * SPRITE_DOWN_W, 0, SPRITE_DOWN_W, SPRITE_DOWN_H,
                         player_fase3->x - SPRITE_DOWN_W/2,
                         player_fase3->y + player_fase3->side/2 - SPRITE_DOWN_H, 0);
                 } else {
-                    if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) { altura_colisao_fase3 = SPRITE_H * 0.5; sprite_row = 1; sprite_col = (direcao_fase3 == 0) ? 0 : 3; }
+                    if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) { sprite_row = 1; sprite_col = (direcao_fase3 == 0) ? 0 : 3; }
                     else if (key[ALLEGRO_KEY_Z]) { sprite_row = 2; sprite_col = (direcao_fase3 == 0) ? 1 : 2; }
                     else if (!no_chao_fase3) { sprite_row = 0; sprite_col = (direcao_fase3 == 0) ? 1 : 2; }
                     else if ((key[ALLEGRO_KEY_LEFT] || key[ALLEGRO_KEY_RIGHT]) && no_chao_fase3) { sprite_row = 1; sprite_col = (direcao_fase3 == 0) ? 1 : 2; }
@@ -1407,14 +1434,18 @@ int main() {
                         player_fase3->y + player_fase3->side/2 - SPRITE_H, 0);
                 }
 
+                // --- TIRO DO PLAYER (igual chefão) ---
                 static double last_shot_time_fase3 = 0;
                 double now_fase3 = al_get_time();
-                double shot_delay_fase3 = 0.15; // igual chefão
-
-                // Disparo do projetil (igual chefão)
-                if (key[ALLEGRO_KEY_Z] && now_fase3 - last_shot_time_fase3 > shot_delay_fase3) {
+                double shot_delay_fase3 = 0.15;
+                if (key[ALLEGRO_KEY_Z] && now_fase3 - last_shot_time_fase3 > shot_delay_fase3 && stamina_fase3 >= 10 && !cansado_fase3) {
                     last_shot_time_fase3 = now_fase3;
-
+                    stamina_fase3 -= 10;
+                    if (stamina_fase3 < 10) {
+                        stamina_fase3 = 0;
+                        cansado_fase3 = true;
+                        stamina_fadiga_tick_fase3 = 0;
+                    }
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
@@ -1446,6 +1477,7 @@ int main() {
                     }
                 }
 
+                // --- Atualiza/desenha projéteis ---
                 for (int i = 0; i < MAX_BULLETS; i++) {
                     if (bullets[i].ativa) {
                         bullets[i].x += bullets[i].vx;
@@ -1459,20 +1491,131 @@ int main() {
                         }
                     }
                 }
+
+                // --- ESTADOS DO CHEFÃO DRAGÃO ---
+                // Troca de estado e timers
+                if (vida_boss3 <= 2 && boss3_state != BOSS3_ALMOST_DEAD && boss3_state != BOSS3_DEAD) {
+                    boss3_state = BOSS3_ALMOST_DEAD;
+                    boss3_timer = 120; // 2 segundos (supondo 60 FPS)
+                }
+                if (boss3_state == BOSS3_IDLE) {
+                    if (boss3_timer == 0) boss3_timer = 180; // 3 segundos vulnerável
+                    boss3_timer--;
+                    // Checa colisão dos tiros do player com chefe (só aqui toma dano)
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (bullets[i].ativa) {
+                            int dragon_w = 200, dragon_h = 300;
+                            int dragon_x = boss3_x;
+                            int dragon_y = boss3_y;
+                            float bullet_left = bullets[i].x - BULLET_BOSS_W/2;
+                            float bullet_right = bullets[i].x + BULLET_BOSS_W/2;
+                            float bullet_top = bullets[i].y;
+                            float bullet_bottom = bullets[i].y + BULLET_BOSS_H;
+                            float boss_left = dragon_x;
+                            float boss_right = dragon_x + dragon_w;
+                            float boss_top = dragon_y;
+                            float boss_bottom = dragon_y + dragon_h;
+                            if (bullet_right > boss_left && bullet_left < boss_right &&
+                                bullet_bottom > boss_top && bullet_top < boss_bottom) {
+                                vida_boss3--;
+                                bullets[i].ativa = 0;
+                                if (vida_boss3 <= 0) {
+                                    vida_boss3 = 0;
+                                    boss3_state = BOSS3_DEAD;
+                                    boss3_timer = 120; // 2 segundos antes do gameover/vitória
+                                }
+                            }
+                        }
+                    }
+                    if (boss3_timer <= 0 && boss3_state != BOSS3_ALMOST_DEAD && boss3_state != BOSS3_DEAD) {
+                        boss3_state = BOSS3_ATTACK;
+                        boss3_timer = 120; // 2 segundos atacando
+                    }
+                } else if (boss3_state == BOSS3_ATTACK) {
+                    if (boss3_timer == 0) boss3_timer = 120; // 2 segundos atacando
+                    boss3_timer--;
+                    // Aqui você pode colocar lógica de ataque do dragão (ex: lançar bolas de fogo, etc)
+                    if (boss3_timer <= 0 && boss3_state != BOSS3_ALMOST_DEAD && boss3_state != BOSS3_DEAD) {
+                        boss3_state = BOSS3_IDLE;
+                        boss3_timer = 180; // volta a ficar vulnerável
+                    }
+                } else if (boss3_state == BOSS3_ALMOST_DEAD) {
+                    boss3_timer--;
+                    // Toma dano normalmente, igual ao IDLE, mas só por 2 segundos.
+                    for (int i = 0; i < MAX_BULLETS; i++) {
+                        if (bullets[i].ativa) {
+                            int dragon_w = 200, dragon_h = 184;
+                            int dragon_x = boss3_x;
+                            int dragon_y = boss3_y + (300-184); // centraliza sprite menor na base
+                            float bullet_left = bullets[i].x - BULLET_BOSS_W/2;
+                            float bullet_right = bullets[i].x + BULLET_BOSS_W/2;
+                            float bullet_top = bullets[i].y;
+                            float bullet_bottom = bullets[i].y + BULLET_BOSS_H;
+                            float boss_left = dragon_x;
+                            float boss_right = dragon_x + dragon_w;
+                            float boss_top = dragon_y;
+                            float boss_bottom = dragon_y + dragon_h;
+                            if (bullet_right > boss_left && bullet_left < boss_right &&
+                                bullet_bottom > boss_top && bullet_top < boss_bottom) {
+                                vida_boss3--;
+                                bullets[i].ativa = 0;
+                                if (vida_boss3 <= 0) {
+                                    vida_boss3 = 0;
+                                    boss3_state = BOSS3_DEAD;
+                                    boss3_timer = 120;
+                                }
+                            }
+                        }
+                    }
+                    if (boss3_timer <= 0) {
+                        boss3_state = BOSS3_DEAD;
+                        boss3_timer = 120;
+                    }
+                } else if (boss3_state == BOSS3_DEAD) {
+                    boss3_timer--;
+                    // Não faz mais nada, espera o fim da animação
+                    if (boss3_timer <= 0) {
+                        tela_vitoria(disp, victory_img); // Ou tela_gameover se preferir
+                        fase3_running = false;
+                        state = MENU;
+                        continue;
+                    }
+                }
+
+                // --- DESENHA O CHEFÃO (escolhe sprite pelo estado, centraliza na base do chão) ---
+                if (boss3_state == BOSS3_IDLE) {
+                    // Parado (vulnerável)
+                    if (dragon_idle) al_draw_bitmap(dragon_idle, boss3_x, boss3_y, 0);
+                } else if (boss3_state == BOSS3_ATTACK) {
+                    // Atacando
+                    if (dragon_attack) al_draw_bitmap(dragon_attack, boss3_x, boss3_y + (300-144), 0); // Alinha base
+                } else if (boss3_state == BOSS3_ALMOST_DEAD) {
+                    // Quase morto
+                    if (dragon_almost_dead) al_draw_bitmap(dragon_almost_dead, boss3_x, boss3_y + (300-184), 0);
+                } else if (boss3_state == BOSS3_DEAD) {
+                    // Morto
+                    if (dragon_dead) al_draw_bitmap(dragon_dead, boss3_x, boss3_y + (300-156), 0);
+                }
+
                 // --- CONTROLE DE PAUSA/SAIR ---
                 if (key[ALLEGRO_KEY_ESCAPE]) {
                     fase3_running = false;
                     state = MENU;
                 }
 
-                // --- HUD (exemplo de barra de vida do chefe 2 e do player) ---
+                // --- HUD (vida chefe e player, barra de stamina) ---
                 char vida_str[32];
-                sprintf(vida_str, "Vida Chefe 2: %d", vida_fase3);
-                al_draw_text(font, al_map_rgb(128,128,255), 20, 20, 0, vida_str);
+                sprintf(vida_str, "Vida Dragão: %d", vida_boss3);
+                al_draw_text(font, al_map_rgb(255,128,0), 20, 20, 0, vida_str);
 
                 char vida_player_str[32];
                 sprintf(vida_player_str, "Vida: %d", vida_player_fase3);
                 al_draw_text(font, al_map_rgb(255,0,0), 20, 50, 0, vida_player_str);
+
+                int bar_w = 200, bar_h = 20;
+                float perc = (float)stamina_fase3 / stamina_max;
+                al_draw_filled_rectangle(20, 80, 20 + bar_w * perc, 80 + bar_h, al_map_rgb(0,200,0));
+                al_draw_rectangle(20, 80, 20 + bar_w, 80 + bar_h, al_map_rgb(0,0,0), 2);
 
                 al_flip_display();
                 al_rest(0.01);
