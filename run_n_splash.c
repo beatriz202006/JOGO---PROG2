@@ -230,6 +230,18 @@ int main() {
         al_destroy_event_queue(queue);
         return 1;
     }
+
+    ALLEGRO_BITMAP* sprite_diagonal = al_load_bitmap("spriteatirandodiagonalfull.png");
+    if (!sprite_diagonal) {
+        printf("Erro ao carregar sprite atirando diagonal!\n");
+        al_destroy_bitmap(sprite_down);
+        al_destroy_bitmap(sprite_sheet);
+        al_destroy_bitmap(bg);
+        al_destroy_font(font);
+        al_destroy_display(disp);
+        al_destroy_event_queue(queue);
+        return 1;
+    }
     
     ALLEGRO_BITMAP* sprite_up = al_load_bitmap("spriteatirandocimafull.png");
     if (!sprite_up) {
@@ -901,9 +913,7 @@ int main() {
                     stamina_recupera_tick = 0;
                     if (stamina < stamina_max) stamina++;
                 }
-                char vida_str[32];
-                sprintf(vida_str, "Vida: %d", vida);
-                al_draw_text(font, al_map_rgb(255,0,0), 20, 20, 0, vida_str);
+
                 int vida_max = 20;
                 int num_coracoes = vida_max / 2;
                 for (int i = 0; i < num_coracoes; i++) {
@@ -1302,7 +1312,7 @@ int main() {
                         if (bullet_right > boss_left && bullet_left < boss_right &&
                             bullet_bottom > boss_top && bullet_top < boss_bottom) {
 
-                            // Se NÃO está em BOSS_DANO, conte hits e aplique dano
+                            // Se NÃO está em BOSS_DANO, conta hits e aplica dano
                             if (boss.estado != BOSS_DANO) {
                                 boss_hit_counter++;
                                 if (boss_hit_counter == 1) {
@@ -1321,7 +1331,7 @@ int main() {
                     }
                 }
             }
-            // Fora do loop: quando está em BOSS_DANO, zere o contador para não acumular
+            // Fora do loop: quando está em BOSS_DANO, zera o contador para não acumular
             if (boss.estado == BOSS_DANO) {
                 boss_hit_counter = 0;
             }
@@ -1576,7 +1586,6 @@ int main() {
                 if (boss3_state == BOSS3_IDLE) {
                     if (boss3_timer == 0) boss3_timer = 180;
                     boss3_timer--;
-                    // NÃO checa colisão dos tiros do player com chefe aqui!
                     if (boss3_timer <= 0 && boss3_state != BOSS3_ALMOST_DEAD && boss3_state != BOSS3_DEAD) {
                         boss3_state = BOSS3_ATTACK;
                         boss3_timer = 120;
@@ -1611,7 +1620,7 @@ int main() {
 
                     // Solta chama de fogo
                     fire_timer++;
-                    if (fire_timer >= 60) { // ajuste a frequência aqui!
+                    if (fire_timer >= 60) { // ajuste da frequência de chamas
                         fire_timer = 0;
                         for (int i = 0; i < MAX_FIRES; i++) {
                             if (fires[i][4] == 0) {
@@ -1660,7 +1669,6 @@ int main() {
                     }
                 } else if (boss3_state == BOSS3_DEAD) {
                     boss3_timer--;
-                    // Se quiser, pode continuar checando colisão aqui, mas geralmente não é necessário pois já está morto.
                     if (boss3_timer <= 0) {
                         // TELA DE VITÓRIA e volta pro MENU
                         tela_vitoria(disp, victory_img);
@@ -1740,9 +1748,13 @@ int main() {
                 sprintf(vida_str, "Vida Dragão: %d", vida_boss3);
                 al_draw_text(font, al_map_rgb(255,128,0), 20, 20, 0, vida_str);
 
-                char vida_player_str[32];
-                sprintf(vida_player_str, "Vida: %d", vida_player_fase3);
-                al_draw_text(font, al_map_rgb(255,0,0), 20, 50, 0, vida_player_str);
+                 // HUD do player
+                int vida_max = 20, num_coracoes = vida_max / 2;
+                for (int i = 0; i < num_coracoes; i++) {
+                    int tipo = (vida_boss3 >= (i+1)*2) ? 0 : (vida_boss3 == (i*2)+1) ? 2 : 1;
+                    al_draw_bitmap_region(coracao_sprite, tipo * CORACAO_W, 0, CORACAO_W, CORACAO_H,
+                        20 + i * (CORACAO_W + 5), 20, 0);
+                }
 
                 int bar_w = 200, bar_h = 20;
                 float perc = (float)stamina_fase3 / stamina_max;
