@@ -27,6 +27,7 @@
 #define SPRITE_W (1895 / NUM_SPRITES) // 118
 #define SPRITE_H 130
 
+
 typedef enum { MENU, GAME, BOSS, FASE3, EXIT, PAUSE } GameState;
 
 // --- ENUM DE ÍNDICES DOS SPRITES ---
