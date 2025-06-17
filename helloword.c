@@ -94,6 +94,9 @@ int player_get_sprite_index(struct Player* p) {
             }
             return (p->direcao == 0) ? SPRITE_ABAIXADO_DIR : SPRITE_ABAIXADO_ESQ;
         }
+        if (p->atirando_diag) {
+            return (p->direcao == 0) ? SPRITE_ATIRANDO_DIAG_DIR : SPRITE_ATIRANDO_DIAG_ESQ;
+        }
         if (p->atirando) {
             return (p->direcao == 0) ? SPRITE_ATIRANDO_DIR : SPRITE_ATIRANDO_ESQ;
         }
@@ -516,7 +519,6 @@ int main() {
             }
         }
 
-            // GAME
         if (state == GAME) {
             float escala = 0.4;
             for (int i = 0; i < NUM_FOGOS; i++) {
@@ -666,9 +668,10 @@ int main() {
                 player.abaixado = (key[ALLEGRO_KEY_DOWN] && no_chao);
                 player.atirando = key[ALLEGRO_KEY_Z];
                 player.atirando_cima = (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]);
-                player.atirando_diag = ((key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_RIGHT] && key[ALLEGRO_KEY_Z]) ||
-                                        (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_LEFT]  && key[ALLEGRO_KEY_Z]) ||
-                                        (key[ALLEGRO_KEY_X])); // X atira na diagonal na direção atual);
+                player.atirando_diag =
+                    ((key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_RIGHT] && key[ALLEGRO_KEY_Z]) ||
+                    (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_LEFT]  && key[ALLEGRO_KEY_Z]) ||
+                    (key[ALLEGRO_KEY_X])); // X atira na diagonal na direção atual
                 player.pulando = (!no_chao);
 
                 // --- DESENHO DO FUNDO ---
@@ -678,7 +681,43 @@ int main() {
                         al_draw_bitmap(bg, x, y, 0);
                     }
                 }
+                if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
+                    key[event.keyboard.keycode] = true;
+                    if (event.keyboard.keycode == ALLEGRO_KEY_P) {
+                        // PAUSE IN-GAME
+                        tela_pausa(disp, pause_img);
 
+                        // Limpa eventos antigos
+                        ALLEGRO_EVENT temp_event;
+                        while (al_get_next_event(queue, &temp_event)) {}
+
+                        // Espera soltar P
+                        bool esperando_soltar = true;
+                        while (esperando_soltar) {
+                            al_wait_for_event(queue, &temp_event);
+                            if (temp_event.type == ALLEGRO_EVENT_KEY_UP && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                                esperando_soltar = false;
+                            if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                                jogando = false;
+                                state = EXIT;
+                                return 0;
+                            }
+                        }
+                        // Espera apertar P de novo
+                        bool esperando = true;
+                        while (esperando) {
+                            al_wait_for_event(queue, &temp_event);
+                            if (temp_event.type == ALLEGRO_EVENT_KEY_DOWN && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                                esperando = false;
+                            if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                                esperando = false;
+                                jogando = false;
+                                state = EXIT;
+                                return 0;
+                            }
+                        }
+                    }
+                }
                 // --- DESENHO DO PLAYER (corrigido para usar player_frames) ---
                 int sprite_indice = player_get_sprite_index(&player);
                 struct SpriteFrame frame = player_frames[sprite_indice];
@@ -706,13 +745,26 @@ int main() {
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
-
-                            if (key[ALLEGRO_KEY_UP]) {
+                            // --- TIRO DIAGONAL ---
+                            if (player.atirando_diag) {
+                                if (direcao == 0) { // direita
+                                    bullets[i].x = player.x + frame.w/2;
+                                    bullets[i].vx = 10;
+                                } else { // esquerda
+                                    bullets[i].x = player.x - frame.w/2;
+                                    bullets[i].vx = -10;
+                                }
+                                bullets[i].y = player.y + player_sq->side/2 - frame.h - 10;
+                                bullets[i].vy = -10;
+                            }
+                            // --- TIRO PARA CIMA ---
+                            else if (key[ALLEGRO_KEY_UP]) {
                                 bullets[i].x = player.x + 10;
                                 bullets[i].y = player.y + player_sq->side/2 - frame.h;
                                 bullets[i].vx = 0;
                                 bullets[i].vy = -15;
                             }
+                            // --- TIRO ABAIXADO ---
                             else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
                                 if (direcao == 0) {
                                     bullets[i].x = player.x + frame.w/2;
@@ -723,6 +775,7 @@ int main() {
                                 bullets[i].vx = (direcao == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
                             }
+                            // --- TIRO HORIZONTAL NORMAL ---
                             else {
                                 if (direcao == 0) {
                                     bullets[i].x = player.x + frame.w/2;
@@ -926,7 +979,7 @@ int main() {
                     jogando = false;
                 }
 
-                 // BLOCO DE RECUPERAÇÃO/CANSAÇO DA ESTAMINA
+                // BLOCO DE RECUPERAÇÃO/CANSAÇO DA ESTAMINA
                 if (cansado) {
                     stamina_fadiga_tick++;
                     if (stamina_fadiga_tick > 60) { // espera 60 frames (~1 segundo)
@@ -1025,6 +1078,45 @@ int main() {
                         key[event.keyboard.keycode] = true;
                     else if (event.type == ALLEGRO_EVENT_KEY_UP)
                         key[event.keyboard.keycode] = false;
+
+                    // Tecla de pausa (sem corte!)
+                    if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
+                        key[event.keyboard.keycode] = true;
+                        if (event.keyboard.keycode == ALLEGRO_KEY_P) {
+                            // PAUSE IN-BOSS
+                            tela_pausa(disp, pause_img);
+
+                            // Limpa eventos antigos
+                            ALLEGRO_EVENT temp_event;
+                            while (al_get_next_event(queue, &temp_event)) {}
+
+                            // Espera soltar P
+                            bool esperando_soltar = true;
+                            while (esperando_soltar) {
+                                al_wait_for_event(queue, &temp_event);
+                                if (temp_event.type == ALLEGRO_EVENT_KEY_UP && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                                    esperando_soltar = false;
+                                if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                                    boss_running = false;
+                                    state = EXIT;
+                                    return 0;
+                                }
+                            }
+                            // Espera apertar P de novo
+                            bool esperando = true;
+                            while (esperando) {
+                                al_wait_for_event(queue, &temp_event);
+                                if (temp_event.type == ALLEGRO_EVENT_KEY_DOWN && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
+                                    esperando = false;
+                                if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                                    esperando = false;
+                                    boss_running = false;
+                                    state = EXIT;
+                                    return 0;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (key[ALLEGRO_KEY_LEFT]) { square_move(player_boss_sq, 1, 0, X_SCREEN, Y_SCREEN); direcao = 1; }
@@ -1040,45 +1132,6 @@ int main() {
                 }
                 if (key[ALLEGRO_KEY_ESCAPE]) { boss_running = false; state = MENU; }
 
-                //Tecla de pausa
-                if (event.type == ALLEGRO_EVENT_KEY_DOWN) {
-                    key[event.keyboard.keycode] = true;
-                    if (event.keyboard.keycode == ALLEGRO_KEY_P) {
-                        // PAUSE IN-BOSS
-                        tela_pausa(disp, pause_img);
-
-                        // Limpa eventos antigos
-                        ALLEGRO_EVENT temp_event;
-                        while (al_get_next_event(queue, &temp_event)) {}
-
-                        // Espera soltar P
-                        bool esperando_soltar = true;
-                        while (esperando_soltar) {
-                            al_wait_for_event(queue, &temp_event);
-                            if (temp_event.type == ALLEGRO_EVENT_KEY_UP && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
-                                esperando_soltar = false;
-                            if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
-                                boss_running = false;
-                                state = EXIT;
-                                return 0;
-                            }
-                        }
-                        // Espera apertar P de novo
-                        bool esperando = true;
-                        while (esperando) {
-                            al_wait_for_event(queue, &temp_event);
-                            if (temp_event.type == ALLEGRO_EVENT_KEY_DOWN && temp_event.keyboard.keycode == ALLEGRO_KEY_P)
-                                esperando = false;
-                            if (temp_event.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
-                                esperando = false;
-                                boss_running = false;
-                                state = EXIT;
-                                return 0;
-                            }
-                        }
-                    }
-                }
-
                 al_draw_scaled_bitmap(bg_boss, 0, 0, 2048, 1536, 0, -100, X_SCREEN, Y_SCREEN + 100, 0);
 
                 // --- ATUALIZA STRUCT PLAYER PARA ANIMAÇÃO ---
@@ -1089,8 +1142,10 @@ int main() {
                 player_boss.abaixado = (key[ALLEGRO_KEY_DOWN] && no_chao);
                 player_boss.atirando = key[ALLEGRO_KEY_Z];
                 player_boss.atirando_cima = (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]);
-                player_boss.atirando_diag = (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_RIGHT] && key[ALLEGRO_KEY_Z]) ||
-                                        (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_LEFT]  && key[ALLEGRO_KEY_Z]);
+                player_boss.atirando_diag =
+                    ((key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_RIGHT] && key[ALLEGRO_KEY_Z]) ||
+                    (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_LEFT]  && key[ALLEGRO_KEY_Z]) ||
+                    (key[ALLEGRO_KEY_X])); // X atira na diagonal na direção atual
                 player_boss.pulando = (!no_chao);
 
                 // --- DESENHO DO PLAYER (corrigido para usar player_frames) ---
@@ -1119,17 +1174,34 @@ int main() {
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
-                            if (key[ALLEGRO_KEY_UP]) {
+                            // --- TIRO DIAGONAL ---
+                            if (player_boss.atirando_diag) {
+                                if (direcao == 0) { // direita
+                                    bullets[i].x = player_boss.x + frame.w/2;
+                                    bullets[i].vx = 10;
+                                } else { // esquerda
+                                    bullets[i].x = player_boss.x - frame.w/2;
+                                    bullets[i].vx = -10;
+                                }
+                                bullets[i].y = player_boss.y + player_boss_sq->side/2 - frame.h - 10;
+                                bullets[i].vy = -10;
+                            }
+                            // --- TIRO PARA CIMA ---
+                            else if (key[ALLEGRO_KEY_UP]) {
                                 bullets[i].x = player_boss.x + 10;
                                 bullets[i].y = player_boss.y + player_boss_sq->side/2 - frame.h;
                                 bullets[i].vx = 0;
                                 bullets[i].vy = -15;
-                            } else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
+                            }
+                            // --- TIRO ABAIXADO ---
+                            else if (key[ALLEGRO_KEY_DOWN] && no_chao) {
                                 if (direcao == 0) bullets[i].x = player_boss.x + frame.w/2;
                                 else bullets[i].x = player_boss.x - frame.w/2;
                                 bullets[i].y = player_boss.y + player_boss_sq->side/2 - frame.h/2 - 5;
                                 bullets[i].vx = (direcao == 0) ? 15 : -15; bullets[i].vy = 0;
-                            } else {
+                            }
+                            // --- TIRO HORIZONTAL NORMAL ---
+                            else {
                                 if (direcao == 0) bullets[i].x = player_boss.x + frame.w/2;
                                 else bullets[i].x = player_boss.x - frame.w/2;
                                 bullets[i].y = player_boss.y + player_boss_sq->side/2 - frame.h -5;
@@ -1435,27 +1507,40 @@ int main() {
                     }
                 }
 
-                // --- TELA DE PAUSA ---
+                // --- TELA DE PAUSA (igual padrão das outras fases) ---
                 if (key[ALLEGRO_KEY_P]) {
                     al_draw_filled_rectangle(0, 0, X_SCREEN, Y_SCREEN, al_map_rgba(0,0,0,180));
                     al_draw_text(font, al_map_rgb(255,255,255), X_SCREEN/2, Y_SCREEN/2-40, ALLEGRO_ALIGN_CENTER, "PAUSADO");
                     al_draw_text(font, al_map_rgb(200,200,200), X_SCREEN/2, Y_SCREEN/2+10, ALLEGRO_ALIGN_CENTER, "Pressione P para voltar");
                     al_flip_display();
 
-                    bool em_pausa = true;
-                    while (em_pausa) {
-                        ALLEGRO_EVENT ev;
+                    // Espera soltar P e apertar de novo, igual padrão do jogo
+                    ALLEGRO_EVENT ev;
+                    // Espera soltar
+                    bool esperando_soltar = true;
+                    while (esperando_soltar) {
                         al_wait_for_event(queue, &ev);
+                        if (ev.type == ALLEGRO_EVENT_KEY_UP && ev.keyboard.keycode == ALLEGRO_KEY_P)
+                            esperando_soltar = false;
                         if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
                             fase3_running = false;
                             state = EXIT;
                             break;
                         }
-                        if (ev.type == ALLEGRO_EVENT_KEY_DOWN && ev.keyboard.keycode == ALLEGRO_KEY_P) {
-                            em_pausa = false;
-                            key[ALLEGRO_KEY_P] = false;
+                    }
+                    // Espera apertar de novo
+                    bool esperando = true;
+                    while (esperando) {
+                        al_wait_for_event(queue, &ev);
+                        if (ev.type == ALLEGRO_EVENT_KEY_DOWN && ev.keyboard.keycode == ALLEGRO_KEY_P)
+                            esperando = false;
+                        if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
+                            fase3_running = false;
+                            state = EXIT;
+                            break;
                         }
                     }
+                    key[ALLEGRO_KEY_P] = false;
                     continue;
                 }
 
@@ -1483,11 +1568,13 @@ int main() {
                 player.abaixado = (key[ALLEGRO_KEY_DOWN] && no_chao_fase3);
                 player.atirando = key[ALLEGRO_KEY_Z];
                 player.atirando_cima = (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_Z]);
-                player.atirando_diag = (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_RIGHT] && key[ALLEGRO_KEY_Z]) ||
-                                    (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_LEFT]  && key[ALLEGRO_KEY_Z]);
+                player.atirando_diag =
+                    ((key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_RIGHT] && key[ALLEGRO_KEY_Z]) ||
+                    (key[ALLEGRO_KEY_UP] && key[ALLEGRO_KEY_LEFT]  && key[ALLEGRO_KEY_Z]) ||
+                    (key[ALLEGRO_KEY_X])); // X atira na diagonal na direção atual
                 player.pulando = (!no_chao_fase3);
 
-                // --- DESENHO DO PLAYER (corrigido para usar player_frames) ---
+                // --- DESENHO DO PLAYER (usando player_frames) ---
                 int sprite_indice = player_get_sprite_index(&player);
                 struct SpriteFrame frame = player_frames[sprite_indice];
                 al_draw_bitmap_region(
@@ -1498,7 +1585,7 @@ int main() {
                     0
                 );
 
-                // --- TIRO DO PLAYER ---
+                // --- TIRO DO PLAYER (com diagonal) ---
                 static double last_shot_time_fase3 = 0;
                 double now_fase3 = al_get_time();
                 double shot_delay_fase3 = 0.15;
@@ -1513,18 +1600,35 @@ int main() {
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
-                            if (key[ALLEGRO_KEY_UP]) {
+                            // --- TIRO DIAGONAL ---
+                            if (player.atirando_diag) {
+                                if (direcao_fase3 == 0) { // direita
+                                    bullets[i].x = player.x + frame.w/2;
+                                    bullets[i].vx = 10;
+                                } else {
+                                    bullets[i].x = player.x - frame.w/2;
+                                    bullets[i].vx = -10;
+                                }
+                                bullets[i].y = player.y + player_fase3->side/2 - frame.h - 10;
+                                bullets[i].vy = -10;
+                            }
+                            // --- TIRO PARA CIMA ---
+                            else if (key[ALLEGRO_KEY_UP]) {
                                 bullets[i].x = player.x + 10;
                                 bullets[i].y = player.y + player_fase3->side/2 - frame.h;
                                 bullets[i].vx = 0;
                                 bullets[i].vy = -15;
-                            } else if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) {
+                            }
+                            // --- TIRO ABAIXADO ---
+                            else if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) {
                                 if (direcao_fase3 == 0) bullets[i].x = player.x + frame.w/2;
                                 else bullets[i].x = player.x - frame.w/2;
                                 bullets[i].y = player.y + player_fase3->side/2 - frame.h/2 - 5;
                                 bullets[i].vx = (direcao_fase3 == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
-                            } else {
+                            }
+                            // --- TIRO HORIZONTAL NORMAL ---
+                            else {
                                 if (direcao_fase3 == 0) bullets[i].x = player.x + frame.w/2;
                                 else bullets[i].x = player.x - frame.w/2;
                                 bullets[i].y = player.y + player_fase3->side/2 - frame.h + 20;
@@ -1746,7 +1850,7 @@ int main() {
                 al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
                     X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
 
-                // --- Barra de stamina (opcional, igual já estava) ---
+                // --- Barra de stamina ---
                 int bar_w = 200, bar_h = 20;
                 float perc = (float)stamina_fase3 / stamina_max;
                 al_draw_filled_rectangle(20, 80, 20 + bar_w * perc, 80 + bar_h, al_map_rgb(0,200,0));
