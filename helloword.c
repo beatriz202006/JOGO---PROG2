@@ -218,6 +218,7 @@ int main() {
     }
     int SPRITE_DOWN_W = 182;
     int SPRITE_DOWN_H = 164;
+    al_convert_mask_to_alpha(sprite_down, al_map_rgb(0,0,0));
 
     ALLEGRO_BITMAP* sprite_up = al_load_bitmap("spriteatirandocimafull.png");
     if (!sprite_up) {
@@ -1376,8 +1377,10 @@ int main() {
         float dragon_scale = 2.0f;
 
         if (state == FASE3) {
-            int vida_boss3 = 15;
-            int vida_player_fase3 = 20;
+            int vida_max_fase3 = 20;
+            int vida_player_fase3 = vida_max_fase3;
+            int boss3_vida_max = 15;
+            int vida_boss3 = boss3_vida_max;
             bool fase3_running = true;
             bool key[ALLEGRO_KEY_MAX] = {false};
             int stamina_fase3 = stamina_max;
@@ -1396,10 +1399,10 @@ int main() {
             int boss3_state = BOSS3_IDLE;
             int boss3_timer = 0;
             int boss3_x = X_SCREEN - DRAGON_IDLE_W * dragon_scale - 40;
-            int boss3_base_y = Y_SCREEN - (DRAGON_IDLE_H * dragon_scale) - 120; // mais pra cima
+            int boss3_base_y = Y_SCREEN - (DRAGON_IDLE_H * dragon_scale) - 120;
 
             // Chamas
-            float fires[MAX_FIRES][5] = {0}; // 0:x 1:y 2:vx 3:vy 4:ativa
+            float fires[MAX_FIRES][5] = {0};
             static int fire_timer = 0;
 
             while (fase3_running) {
@@ -1418,18 +1421,15 @@ int main() {
 
                 // --- TELA DE PAUSA ---
                 if (key[ALLEGRO_KEY_P]) {
-                    // Mostra tela de pausa
                     al_draw_filled_rectangle(0, 0, X_SCREEN, Y_SCREEN, al_map_rgba(0,0,0,180));
                     al_draw_text(font, al_map_rgb(255,255,255), X_SCREEN/2, Y_SCREEN/2-40, ALLEGRO_ALIGN_CENTER, "PAUSADO");
                     al_draw_text(font, al_map_rgb(200,200,200), X_SCREEN/2, Y_SCREEN/2+10, ALLEGRO_ALIGN_CENTER, "Pressione P para voltar");
                     al_flip_display();
 
-                    // Espera o jogador soltar e pressionar P de novo
                     bool em_pausa = true;
                     while (em_pausa) {
                         ALLEGRO_EVENT ev;
                         al_wait_for_event(queue, &ev);
-
                         if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
                             fase3_running = false;
                             state = EXIT;
@@ -1437,10 +1437,10 @@ int main() {
                         }
                         if (ev.type == ALLEGRO_EVENT_KEY_DOWN && ev.keyboard.keycode == ALLEGRO_KEY_P) {
                             em_pausa = false;
-                            key[ALLEGRO_KEY_P] = false; // limpa flag
+                            key[ALLEGRO_KEY_P] = false;
                         }
                     }
-                    continue; // volta para o início do while para não processar o resto enquanto pausado
+                    continue;
                 }
 
                 // --- FUNDO ---
@@ -1497,23 +1497,18 @@ int main() {
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (!bullets[i].ativa) {
                             bullets[i].ativa = 1;
-                            // Para cima
                             if (key[ALLEGRO_KEY_UP]) {
                                 bullets[i].x = player_fase3->x + 10;
                                 bullets[i].y = player_fase3->y + player_fase3->side/2 - SPRITE_UP_H;
                                 bullets[i].vx = 0;
                                 bullets[i].vy = -15;
-                            }
-                            // Para baixo
-                            else if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) {
+                            } else if (key[ALLEGRO_KEY_DOWN] && no_chao_fase3) {
                                 if (direcao_fase3 == 0) bullets[i].x = player_fase3->x + SPRITE_DOWN_W/2;
                                 else bullets[i].x = player_fase3->x - SPRITE_DOWN_W/2;
                                 bullets[i].y = player_fase3->y + player_fase3->side/2 - SPRITE_DOWN_H/2 + 40;
                                 bullets[i].vx = (direcao_fase3 == 0) ? 15 : -15;
                                 bullets[i].vy = 0;
-                            }
-                            // Para frente
-                            else {
+                            } else {
                                 if (direcao_fase3 == 0) bullets[i].x = player_fase3->x + SPRITE_W/2;
                                 else bullets[i].x = player_fase3->x - SPRITE_W/2;
                                 bullets[i].y = player_fase3->y + player_fase3->side/2 - SPRITE_H + 20;
@@ -1564,7 +1559,6 @@ int main() {
                 if (boss3_state == BOSS3_IDLE) {
                     if (boss3_timer == 0) boss3_timer = 180;
                     boss3_timer--;
-                    // NÃO checa colisão dos tiros do player com chefe aqui!
                     if (boss3_timer <= 0 && boss3_state != BOSS3_ALMOST_DEAD && boss3_state != BOSS3_DEAD) {
                         boss3_state = BOSS3_ATTACK;
                         boss3_timer = 120;
@@ -1573,7 +1567,7 @@ int main() {
                     if (boss3_timer == 0) boss3_timer = 120;
                     boss3_timer--;
 
-                    // Checa colisão dos tiros do player com chefe (apenas aqui e nos outros estados que NÃO são parado)
+                    // Checa colisão dos tiros do player com chefe
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (bullets[i].ativa) {
                             float bullet_left = bullets[i].x - BULLET_BOSS_W/2;
@@ -1597,15 +1591,14 @@ int main() {
                         }
                     }
 
-                    // Solta chama de fogo
                     fire_timer++;
-                    if (fire_timer >= 60) { // ajuste a frequência aqui!
+                    if (fire_timer >= 60) {
                         fire_timer = 0;
                         for (int i = 0; i < MAX_FIRES; i++) {
                             if (fires[i][4] == 0) {
                                 fires[i][4] = 1;
-                                fires[i][2] = -14; // vx
-                                fires[i][3] = 0;   // vy
+                                fires[i][2] = -14;
+                                fires[i][3] = 0;
                                 fires[i][0] = boss3_x + DRAGON_ATTACK_W * dragon_scale * 0.3;
                                 fires[i][1] = boss3_base_y + (DRAGON_IDLE_H - DRAGON_ATTACK_H) * dragon_scale + DRAGON_ATTACK_H * dragon_scale - FIRE_H * dragon_scale;
                                 break;
@@ -1619,7 +1612,6 @@ int main() {
                     }
                 } else if (boss3_state == BOSS3_ALMOST_DEAD) {
                     boss3_timer--;
-                    // Checa colisão dos tiros do player com chefe (também toma dano aqui)
                     for (int i = 0; i < MAX_BULLETS; i++) {
                         if (bullets[i].ativa) {
                             float bullet_left = bullets[i].x - BULLET_BOSS_W/2;
@@ -1648,11 +1640,9 @@ int main() {
                     }
                 } else if (boss3_state == BOSS3_DEAD) {
                     boss3_timer--;
-                    // Se quiser, pode continuar checando colisão aqui, mas geralmente não é necessário pois já está morto.
                     if (boss3_timer <= 0) {
-                        // TELA DE VITÓRIA e volta pro MENU
                         tela_vitoria(disp, victory_img);
-                        al_rest(1.5); // breve pausa para o player ver
+                        al_rest(1.5);
                         fase3_running = false;
                         state = MENU;
                         continue;
@@ -1701,7 +1691,6 @@ int main() {
                             fires[i][4] = 0;
                         }
 
-                        // Desativa se sair da tela
                         if (fires[i][0] < -FIRE_W * dragon_scale)
                             fires[i][4] = 0;
                     }
@@ -1709,34 +1698,40 @@ int main() {
 
                 // --- GAME OVER: VIDA DO PLAYER CHEGOU A ZERO ---
                 if (vida_player_fase3 <= 0) {
-                    // TELA DE GAME OVER e volta pro MENU
                     tela_gameover(disp, gameover_img);
-                    al_rest(1.5); // breve pausa para o player ver
+                    al_rest(1.5);
                     fase3_running = false;
                     state = MENU;
                     continue;
                 }
 
-                // --- CONTROLE DE PAUSA/SAIR ---
                 if (key[ALLEGRO_KEY_ESCAPE]) {
                     fase3_running = false;
                     state = MENU;
                 }
 
-                // --- HUD ---
-                char vida_str[32];
-                sprintf(vida_str, "Vida Dragão: %d", vida_boss3);
-                al_draw_text(font, al_map_rgb(255,128,0), 20, 20, 0, vida_str);
+                // --- HUD do player (igual à fase anterior) ---
+                int vida_max = 20, num_coracoes = vida_max / 2;
+                for (int i = 0; i < num_coracoes; i++) {
+                    int tipo = (vida_player_fase3 >= (i+1)*2) ? 0 : (vida_player_fase3 == (i*2)+1) ? 2 : 1;
+                    al_draw_bitmap_region(coracao_sprite, tipo * CORACAO_W, 0, CORACAO_W, CORACAO_H,
+                        20 + i * (CORACAO_W + 5), 20, 0);
+                }
 
-                char vida_player_str[32];
-                sprintf(vida_player_str, "Vida: %d", vida_player_fase3);
-                al_draw_text(font, al_map_rgb(255,0,0), 20, 50, 0, vida_player_str);
+                // --- HUD da barra do chefe (igual à fase anterior) ---
+                struct Boss fake_boss3;
+                memset(&fake_boss3, 0, sizeof(struct Boss)); // zera todos os campos
+                fake_boss3.vida = vida_boss3;
+                int vida_col = boss_bar_col(fake_boss3);
+                int vida_row = boss_bar_row(fake_boss3);
+                al_draw_bitmap_region(boss_vida_sprite, vida_col * BOSS_VIDA_W, vida_row * BOSS_VIDA_H, BOSS_VIDA_W, BOSS_VIDA_H,
+                    X_SCREEN - BOSS_VIDA_W - 20, 20, 0);
 
+                // --- Barra de stamina (opcional, igual já estava) ---
                 int bar_w = 200, bar_h = 20;
                 float perc = (float)stamina_fase3 / stamina_max;
                 al_draw_filled_rectangle(20, 80, 20 + bar_w * perc, 80 + bar_h, al_map_rgb(0,200,0));
                 al_draw_rectangle(20, 80, 20 + bar_w, 80 + bar_h, al_map_rgb(0,0,0), 2);
-
                 al_flip_display();
                 al_rest(0.01);
             }
