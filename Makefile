@@ -1,27 +1,26 @@
-# Nome do executável
+# Nome do executável final
 TARGET = run_n_splash
 
-# Arquivos-fonte do projeto
-SRC = run_n_splash.c Square.c Joystick.c
+# Lista de arquivos-fonte do projeto
+SRCS = run_n_splash.c player.c enemy.c boss.c projetil.c utils.c Square.c Joystick.c
 
-# Flags do Allegro
-ALLEGRO_FLAGS = $(shell pkg-config allegro-5 allegro_font-5 allegro_main-5 allegro_primitives-5 allegro_image-5 --libs --cflags)
+# Flags do compilador para warnings e padrão C99
+CFLAGS = -std=c99
 
-# Compilador
-CC = gcc
+# Bibliotecas do Allegro (ajuste conforme sua instalação se necessário)
+ALLEGRO_LIBS = -lallegro -lallegro_image -lallegro_font -lallegro_ttf -lallegro_primitives -lallegro_audio -lallegro_acodec -lm
 
-# Regra padrão: compilar
+# Regra padrão: compilar tudo
 all: $(TARGET)
 
-$(TARGET): $(SRC)
-	$(CC) $(SRC) -o $(TARGET) $(ALLEGRO_FLAGS)
+# Regra para linkar o executável
+$(TARGET): $(SRCS)
+	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET) $(ALLEGRO_LIBS)
 
-# Regra para executar o programa
+# Limpa arquivos objeto e executável
+clean:
+	rm -f $(TARGET) *.o
+
+# Rodar o programa (opcional)
 run: all
 	./$(TARGET)
-
-# Limpeza
-clean:
-	rm -f $(TARGET)
-
-.PHONY: all clean run

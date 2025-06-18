@@ -1,0 +1,29 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define X_SCREEN 1200
+#define Y_SCREEN 1000
+#define MAX_CHAMAS 500
+#define MAX_BULLETS 2000
+#define NUM_FOGOS 6
+#define MAX_BOLAS_FOGO 50
+#define GAMEOVER_TIME 4.0f
+
+#define DRAGON_IDLE_W 200
+#define DRAGON_IDLE_H 300
+#define DRAGON_ATTACK_W 200
+#define DRAGON_ATTACK_H 144
+#define DRAGON_ALMOST_DEAD_W 200
+#define DRAGON_ALMOST_DEAD_H 184
+#define DRAGON_DEAD_W 200
+#define DRAGON_DEAD_H 156
+#define FIRE_W 52
+#define FIRE_H 78
+#define MAX_FIRES 8
+#define NUM_SPRITES 16
+#define SPRITE_W (1895 / NUM_SPRITES)
+#define SPRITE_H 130
+
+typedef enum { MENU, GAME, BOSS, FASE3, EXIT, PAUSE } GameState;
+
+#endif
